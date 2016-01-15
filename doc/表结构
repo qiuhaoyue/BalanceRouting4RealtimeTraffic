@@ -1,0 +1,41 @@
+osm导入的地图数据
+               List of relations
+ Schema |       Name        | Type  |  Owner   
+--------+-------------------+-------+----------
+ public | classes           | table | postgres
+ public | nodes             | table | postgres
+ public | relation_ways     | table | postgres
+ public | relations         | table | postgres
+ public | spatial_ref_sys   | table | postgres
+ public | types             | table | postgres
+ public | way_tag           | table | postgres
+ public | ways              | table | postgres
+ public | ways_vertices_pgr | table | postgres
+(9 rows)
+
+ways:
+gid  | class_id |       length        | name |    x1     |    y1    |    x2     |    y2    |    reverse_cost    | rule | to_cost | maxspeed_forward | maxspeed_backward |  osm_id  | priority |                                          the_geom                                          | source | target 
+------+----------+---------------------+------+-----------+----------+-----------+----------+--------------------+------+---------+------------------+-------------------+----------+----------+--------------------------------------------------------------------------------------------+--------+--------
+  594 |      125 | 0.00915537150942419 |      | 116.33956 | 39.93589 | 116.33946 | 39.93592 |   9155.37150942419 |      |         |               50 |                50 | 22758748 |        1 | 0102000020E610000002000000E8C1DD59BB155D40A453573ECBF7434036936FB6B9155D400FD6FF39CCF74340 |      1 |      2
+
+nodes:
+    id    |     lon      |     lat     | numofuse 
+----------+--------------+-------------+----------
+ 25248662 | 116.39124000 | 39.90596000 |        0
+ 25248785 | 116.38945000 | 39.90618000 |        3
+
+types
+ id |   name    
+----+-----------
+  2 | cycleway
+  1 | highway
+  4 | junction
+  3 | tracktype
+
+
+出租车gps数据
+suid  |    utc     |   lat   |   lon    | head | speed | distance |   tflag    | vflag | dst | ost |     ostdesc      | apc 
+-------+------------+---------+----------+------+-------+----------+------------+-------+-----+-----+------------------+-----
+ 16277 | 1270501535 | 4016024 | 11660893 |  147 |     0 |        0 | 1073741824 |     0 |  -1 | 1,1 |车门关,定位无效,ACC关,空车 |   0
+
+

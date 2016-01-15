@@ -1,0 +1,27 @@
+从https://jdbc.postgresql.org/download.html下载驱动器并拷贝至JAVA_HOME/jre/lib/ext/
+
+处理顺序:
+
+新建单行道路表: create table oneway_test as select * from ways;
+RoadCostUpdater:根据道路的class_id,即道路级别重新设定to_cost,reverse_cost
+(time java RoadCostUpdater > ./logs/RoadCostUpdater.log 2>error.log) 2>time.log
+real	25m20.395s
+
+SpliteDualWay:将ways表中的双行线划分成双行线,即将reverse_cost和to_cost拆分成2条记录
+(time java SpliteDualWay > ./logs/SplitDualWay.log 2>error.log) 2>time.log
+real	16m5.844s
+
+(time java RemoveStopPoint > ./logs/RemoveStopPoint.log 2>error.log) 2>time.log
+RemoveStopPoint:将定位有效的点筛出存入新表,并根据距离与时间间隔插入long_stop值
+DBconnector:用于gps数据匹配道路，添加：Gid，Edge_offset,route三个字段，分别表示将这个点匹配的位置以及这个点的前一个点到当前sample通过的路径。
+
+RoadPassStat:使用地图匹配的结果利用即时速度的平均值求出道路的平均速度，对于这种方式得不到平均速度的道路，使用同等级道路的平均值作为缺省值。这个程序运行后得到的道路的平均速度将作为第一次Travel Time Allocation的参考。
+
+
+
+纯对象类
+Sample:出租车数据
+RoadSegment:路段
+Trip:
+MatchEntry:
+Turning:路口

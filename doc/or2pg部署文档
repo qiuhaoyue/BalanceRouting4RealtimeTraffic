@@ -1,0 +1,102 @@
+官方文档: http://ora2pg.darold.net/documentation.html
+
+#perl　ubuntu默认安装
+#安装DBI模块
+perl -MCPAN -e shell
+cpan> install DBI
+
+#安装DBD:Pg,如果不需要直接从oracle导出到postgresql的话,无需安装此模块
+wget http://www.cpan.org/authors/id/T/TU/TURNSTEP/DBD-Pg-3.5.2.tar.gz
+tar -xvf http://www.cpan.org/authors/id/T/TU/TURNSTEP/DBD-Pg-3.5.2.tar.gz
+cd DBD-Pg-3.5.2.tar.gz
+perl Makefile.PL
+make && make install
+
+wget http://jaist.dl.sourceforge.net/project/ora2pg/16.1/ora2pg-16.1.tar.bz2
+tar -jxvf ora2pg-16.1.tar.bz2
+cd ora2pg-16.1/
+perl Makefile.PL
+make && make install
+
+#安装oracle,参见http://my.oschina.net/farces/blog/279434
+遇到的问题
+1.
+报错 ： Error in invoking target 'install' of makefile '/opt/oracle/product/11.2.0/dbhome_1/ctx/lib/ins_ctx.mk'
+查看log/lib64/libstdc++.so.5: undefined reference to `memcpy@GLIBC_2.14
+ubuntu 14.04带的libstdc++5.0 和oracle不兼容所致
+从这里 ftp://rpmfind.net/linux/Mandriva/official/2010.0/x86_64/media/contrib/release/libstdc++5-3.3.6-4mdv2009.0.x86_64.rpm 下载，直接安压缩包打开提取，并提取到/usr/lib/x86_64-linux-gnu
+
+2.
+调用makefile '．．/network/lib/ins_net_server.mk' 的目标'install' 时出错。
+gcc版本过高,降低到4.4
+sudo apt-get remove gcc
+sudo apt-get install gcc-4.4
+ln -s /usr/bin/gcc-4.4 /usr/bin/gcc
+其余问题安装链接中均有解答
+
+导入dmp数据
+su - oracle
+source /home/zyu/.bashrc#或者自己设置oracle的oracle环境变量
+sqlplus /nolog
+SQL>  conn sys/超级管理员密码 as sysdba;
+#修改字符集,否则导入后中文乱码
+shutdown immediate;
+startup mount;
+alter system enable restricted session;
+alter system set job_queue_processes=0;
+alter database open;
+alter database character set internal_use ZHS16GBK;
+shutdown immediate;
+startup
+#创建用户
+create user zyu identified by <password>;
+grant connect, resource,dba to zyu;
+conn zyu
+#创建表空间
+create tablespace asyn_pos_log datafile '/opt/oracle/taxi_data/asyn_pos_log.dbf' size 5120m autoextend on next 64m maxsize unlimited extent management local;
+#退出sqlplus
+lsnrctl
+start
+#退出lsnrctl
+#开始导入
+imp zyu/<password>@orcl file=/home/zyu/20100406.dmp full=y
+#去除重复
+create table gps tablespace asyn_pos_log as select distinct suid, utc, lat, lon, head, speed, distance, tflag, vflag, dst, ost, ostdesc, apc from mcc_asyn_pos;
+#安装DBD:ORACLE
+export LD_LIBRARY_PATH=/opt/oracle/product/11.2.0/dbhome_1/lib
+export ORACLE_HOME=/opt/oracle/product/11.2.0/dbhome_1/
+perl -MCPAN -e 'install DBD::Oracle'
+#前面换过gcc版本导致识别不出cc命令,重新安装
+sudo apt-get install build-essential
+#ora2pg配置文件
+vi /etc/ora2pg/ora2pg.conf.dist
+#设置以下参数
+# Set the Oracle home directory
+ORACLE_HOME     /opt/oracle/product/11.2.0/dbhome_1/
+# Set Oracle database connection (datasource, user, password)
+ORACLE_DSN      dbi:Oracle:host=localhost;sid=orcl
+ORACLE_USER     zyu
+ORACLE_PWD      secret
+
+TYPE            TABLE COPY
+ALLOW           gps
+SCHEMA          zyu
+#如果你需要直接转入postgresql而不是导出至sql文件的话,设置以下参数,注意:直接转换需要提前建立好表gps
+#PG_DSN         dbi:Pg:dbname=taxi_data;host=localhost;port=5432
+#PG_USER        postgres
+#PG_PWD         secret
+
+#创建准备导入的数据库
+psql> CREATE DATABASE taxi_data
+#退出
+# add PostGIS functions (version 2.x) to 'routing'
+psql -d routing -c "CREATE EXTENSION postgis;"
+
+# add pgRouting core functions to 'routing'
+psql -d routing -c "CREATE EXTENSION pgrouting;"
+#进行转换
+/usr/local/bin/ora2pg -c /etc/ora2pg/ora2pg.conf.dist
+#如果在配置文件中设置了postgresql信息并且安装了Pg模块,则不需要下一步
+#导入postgres
+\i /opt/oracle/taxi_data/output.sql
+

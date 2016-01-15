@@ -1,0 +1,31 @@
+SpliteDualWay：将双行线全部改为单行线。需要程序中配置道路的表名（main函数）以及配置单行线逆向行驶的权值（在splteway函数中）
+函数执行完成后在原表中将所有的双行线改为两条单行线。
+
+
+RoadCostUpdater：根据不同道路的级别修改道路的加权长度，作为mapmatching中计算transition weight的依据。需要在main函数中给出道路地图的表名。
+
+
+RemoveStopPoint：标记长暂停节点。接受taxi sample表的作为参数，在label_stop函数中修改两个参数interval_threshold,distance_threshold.
+函数执行结束后在taxi sample表中添加一列，表明这个表的类型：0=正常，1=Longstop
+
+
+
+DBconnector: 是mapmatching的主程序，只需要给出出租车sample点的数据库表名称，另外需要在Main函数中配置道路地图的表名，和intersection的表名。几个关键参数在mapMatching函数中，包括：distance_threshold(点到道路的距离阈值),temp_stop_threshold（最近推测多远的点之间的路径）, travel_threshold（路径长度和直线距离差值的最大值）,time_threshold（两个点之间的最大时间间隔）；
+
+函数执行完成以后会在每个sample列的后面添加：Gid，Edge_offset,route三个字段，分别表示将这个点匹配的位置以及这个点的前一个点到当前sample通过的路径。
+
+
+
+RoadPassStat：使用地图匹配的结果利用即时速度的平均值求出道路的平均速度，对于这种方式得不到平均速度的道路，使用同等级道路的平均值作为缺省值。这个程序运行后得到的道路的平均速度将作为第一次Travel Time Allocation的参考。
+
+
+
+TravelTimeAllocation：
+需要给出Sample table，roadmap table（这个table里面需要有初始的速度信息），需要给出end_utc,cur_utc。然后程序会计算道路的通过时间并且存在数据库中。allocate_time会将结果存放在表$allocation_table+seq_num中，aggregate_time函数会将结果存放在$time_table+seq_num中。表$allocation_table+seq_num中会有两类通过时间一类是实际使用sample计算出来的，reference_count>0，另外一类是reference_count=0的，这一类目前使用的结果是。TripFinder:
+get_trips：给出sample table，从这个table中找出所有的trip，并将结果存放在一个新的表中。可以调节的参数包括temp_stop的比例，最短trip长度等。
+将trip找出以后，调用time_evaluation函数计算通过时间。
+
+
+
+
+
