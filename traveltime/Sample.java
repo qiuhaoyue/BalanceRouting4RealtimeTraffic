@@ -2,7 +2,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.TimeZone;
 
-public class Sample {
+public class Sample implements Comparable<Sample>{
 
 	public long suid;
 	public Date utc;
@@ -68,6 +68,9 @@ public class Sample {
 		output+=format.format(this.utc)+")	";		
 		output+="lat:" + lat + ",lon:" + lon + ",head:" + head + ",speed:" + speed + ",distance:" + distance+ ",min_matching_distance:" + min_matching_distance+"";		
 		return output;
+	}
+	public int compareTo(Sample a){
+		return this.utc.compareTo(a.utc);
 	}
 	
 }

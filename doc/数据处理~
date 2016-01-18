@@ -1,5 +1,5 @@
 从https://jdbc.postgresql.org/download.html下载驱动器并拷贝至JAVA_HOME/jre/lib/ext/
-java heap 默认为物理内存的1/4,调到80%,时间太长的话用at运行一次性定时任务即可
+java heap 默认为物理内存的1/4,调到80%
 处理顺序:
 
 新建单行道路表: create table oneway_test as select * from ways;
