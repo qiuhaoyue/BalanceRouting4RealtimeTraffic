@@ -4,19 +4,31 @@ Logo          : True
 
 [实时路况计算系统]
 
-# 系统框架 
+# 系统框架图
 
-![实时路况更新系统]
-
-[实时路况更新系统]: images/-.jpg "实时路况更新系统" { width:auto; max-width:90% }
-
-Madoko 
-
-
-
-* Read the [reference manual].
-* Explore the upper-right toolbox menu to discover how Markdown works. 
-* `Alt-Q` reformats the current paragraph.
 
 # 模块说明
+
+* Dispatcher:将输入的GPS点按照suid分配到具体的子节点上进行计算，本地需要维护一张子节点与suid范围
+的映射表。暂时不考虑
+* 出租车队列：GPS点按照suid放入内存，将定位无效的点丢弃。当某一队列中的GPS点数量超过阈值或时间超过阈值时，
+从线程池获取资源，建立线程将队列中的点送入预处理模块。为保持道路匹配的精度，队列中保留最近的2-3个点（待确认）。
+
+* 线程池：使用java自带的FixedThreadPool，可能改为CachedThreadPool，需要测试确认哪种更适合。
+
+* Preprocess：根据距离与时间间隔（可修改）插入点的长暂停标记。
+
+* HMMM道路匹配：使用[在线的HMMM算法]进行道路匹配。如果点序列数量大于阈值，执行Sequence匹配(精确度高，但有输出延时)，
+  否则执行online匹配(精确度低，当前点不考虑后面点的匹配情况，无输出延时)。输出的GPS点带有
+  Gid，Edge_offset,route三个字段，分别表示将这个点匹配的道路id，偏移以及这个点的前一个点到当前sample通过的路径。
+
+* PostProcess：对匹配完成的点序列进一步处理，对当前点标记上一个点所在的道路以及时间间隔。
+
+* 更新模块： 为防止频繁写数据库带来的时间消耗，对插入的GPS点信息进行统一写入。
+
+* 路况更新模块： 更新模块写入数据后触发，计算(道路A,道路B)的通过时间,以及某一条道路的通过时间(对于没有结果的道路,使用同等级道路的平均值作为缺省值)
+
+
+
+[在线的HMMM算法]: https://github.com/bmwcarit/barefoot
 
