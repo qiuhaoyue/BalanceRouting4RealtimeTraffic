@@ -39,6 +39,8 @@ Logo          : True
         以当前点为基准，选出在该点之前且距离在阈值内的所有点作为集合A；
         求出集合A中的点与当前点的时间间隔；
         将时间间隔大于阈值的点标记为长暂停；
+ 
+* 轨迹预处理:
         
 * 道路匹配：算法参考论文：“Online map-matching based on Hidden Markov model for real-time traffic sensing applications”
 
@@ -47,14 +49,15 @@ Logo          : True
 * 路况计算：
 
     1.先计算从每个点及其与上一个点之间的路由信息获取到的路况；
-    for each point in GPS database:
-      for each road in route://遍历出租车从上一个点到当前点经过的所有道路
-        计算出租车在道路上的覆盖率;
-        根据覆盖率计算在当前道路上消耗的时间，具体公式为覆盖率*当前道路长度/当前道路到下一条道路的速度(迭代);
-        将算得的时间累加到totaltime;
-      for each road in route that has coverage://所有成功算出覆盖率的道路，可能有路段出现异常
-        计算当前道路到下一个路段的通过时间，具体公式为：
-        当前点的间隔(即与上一个gps点的时间差)*道路长度/当前道路到下一条道路的速度*覆盖率/totaltime；
+
+      for each point in GPS database:
+        for each road in route://遍历出租车从上一个点到当前点经过的所有道路
+          计算出租车在道路上的覆盖率;
+          根据覆盖率计算在当前道路上消耗的时间，具体公式为覆盖率*当前道路长度/当前道路到下一条道路的速度(迭代);
+          将算得的时间累加到totaltime;
+        for each road in route that has coverage://所有成功算出覆盖率的道路，可能有路段出现异常
+          计算当前道路到下一个路段的通过时间，具体公式为：
+          当前点的间隔(即与上一个gps点的时间差)*道路长度/当前道路到下一条道路的速度*覆盖率/totaltime；
         
     2.将所有gps点挖掘出的路况进行聚合；
 
