@@ -67,6 +67,9 @@ Logo          : True
   
 * 路况计算：
 
+![路况更新模块]
+    
+
     1.先计算从每个点及其与上一个点之间的路由信息获取到的路况；
 
       for each point in GPS database:
