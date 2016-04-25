@@ -14,23 +14,42 @@ Logo          : True
 
 * Dispatcher:将输入的GPS点按照suid分配到具体的子节点上进行计算，本地需要维护一张子节点与suid范围
 的映射表。暂时不考虑
+  输入：原始GPS流(suid, utc, lat, lon, head, ostdesc)(省略某些不用的属性)
+  输出：按suid分割的GPS流，并简单丢弃定位无效的点
+  
 * 出租车队列：GPS点按照suid放入内存，将定位无效的点丢弃。当某一队列中的GPS点数量超过阈值或时间超过阈值时，
 从线程池获取资源，建立线程将队列中的点送入预处理模块。为保持道路匹配的精度，队列中保留最近的2-3个点（待确认）。
+  输入：GPS流
+  输出：分割后的单辆出租车GPS点序列(GPS1, GPS2, GPS3...)，有长度及时间限制。
 
-* 线程池：使用java自带的FixedThreadPool，可能改为CachedThreadPool，需要测试确认哪种更适合。
-
+* 线程池：使用java自带的FixedThreadPool，可能改为CachedThreadPool，需要测试确认哪种更适合。黄色部分都属于线程。
+  输入：出租车suid以及该辆出租车的GPS点序列。
+  输出：无输出。将处理完毕的GPS点写入GPS数据库。
+  
 * Preprocess：输入同一辆出租车的点序列，根据距离与时间间隔（可修改）插入点的长暂停标记。
-
+  输入：单辆出租车的GPS点序列。
+  输出：单辆出租车的GPS点序列，每个GPS点添加属性stop。
+  
 * HMMM道路匹配：输入带长暂停标记的出租车点序列，使用[在线的HMMM算法]进行道路匹配。如果点序列数量大于阈值，执行Sequence匹配(精确度高，但有输出延时)，
   否则执行online匹配(精确度低，当前点不考虑后面点的匹配情况，无输出延时)。输出的GPS点带有
   Gid，Edge_offset,route三个字段，分别表示将这个点匹配的道路id，偏移以及这个点的前一个点到当前sample通过的路径。
+  输入：单辆出租车的GPS点(suid, utc, lat, lon, head, ostdesc, stop)序列
+  输出：单辆出租车的GPS点(suid, utc, lat, lon, head, ostdesc, stop, Gid, Edge_offset, route)序列
 
 * PostProcess：输入带长暂停以及道路标记的点序列，对匹配完成的点序列进一步处理，对当前点标记上一个点所在的道路以及时间间隔。
+  输入：单辆出租车的GPS点(suid, utc, lat, lon, head, ostdesc, stop, Gid, Edge_offset, route)序列
+  输出：单辆出租车的GPS点(suid, utc, lat, lon, head, ostdesc, stop, Gid, Edge_offset, route, interval, pre_gid, pre_offset)序列
 
-* 更新模块： 为防止频繁写数据库带来的时间消耗，对插入的GPS点信息进行统一写入。
+* 更新模块： 为防止频繁写数据库带来的时间消耗，对插入的GPS点信息进行汇总，统一写入。
+  输入：处理完毕的GPS流(suid, utc, lat, lon, head, ostdesc, stop, Gid, Edge_offset, route, interval, pre_gid, pre_offset)
+  输出：当更新记录数大于某一阈值或时间大于某一阈值时执行写入，并触发路况更新。
 
 * 路况更新模块： 更新模块写入数据后触发，从GPS数据库中读取处理完毕的出租车信息，计算车辆在经过的道路上消耗的时间，
 再进行聚合，计算(道路A,道路B)的通过时间,以及某一条道路的通过时间(对于没有结果的道路,使用同等级道路的平均值作为缺省值)
+  输入：某一时段内的(5分钟？)GPS记录以及地图信息
+  输出：某一时段内的路况信息，道路的路况包括2种，next_gid不为null的是指定下一条路的travel time，对于不同的next_gid速度不同，
+  next_gid为null的是一条路的总的路况，该记录唯一。
+  (gid, next_gid, reference, time, average_speed, class_id, name, length, to_cost, reverse_cost)
 
 # 核心算法
 * 长暂停标记：设定一个距离阈值，时间阈值。
