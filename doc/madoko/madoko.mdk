@@ -78,7 +78,7 @@ Logo          : True
         求出集合A中的点与当前点的时间间隔；
         将时间间隔大于阈值的点标记为长暂停；
  
-* 轨迹预处理:
+## 轨迹预处理: { - }
         
 * 道路匹配：算法参考论文：“Online map-matching based on Hidden Markov model for real-time traffic sensing applications”
 
