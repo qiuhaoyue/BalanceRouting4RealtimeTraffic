@@ -1,7 +1,15 @@
 Title         : 实时路况计算系统
 Author        : 张禹
+
 Logo          : True
 Email         : zhangrain911@163.com
+
+
+Doc class     : [10pt]article
+
+
+[TITLE]
+
 
 [TOC]
 
@@ -97,6 +105,7 @@ GPS点按照suid放入内存，将定位无效的点丢弃。当某一队列中�
         将时间间隔大于阈值的点标记为长暂停；
  
 ## 2.2 轨迹预处理: {-}
+暂不考虑
         
 ## 2.3 道路匹配： {-}
 算法参考论文：“Online map-matching based on Hidden Markov model for real-time traffic sensing applications”
