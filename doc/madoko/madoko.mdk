@@ -101,9 +101,9 @@ GPS点按照suid放入内存，将定位无效的点丢弃。当某一队列中�
 # 2. 核心算法 {-}
 ## 2.1 长暂停标记： {-}
 
-![长暂停标记]
+![label_stop]
 
-[长暂停标记]: images/label_stop.jpg "label_stop" { width:auto; max-width:90% }
+[label_stop]: images/label_stop.jpg "label_stop" { width:auto; max-width:90% }
 
 
 设定一个距离阈值，时间阈值。
@@ -112,7 +112,7 @@ GPS点按照suid放入内存，将定位无效的点丢弃。当某一队列中�
         以当前点为基准，选出在该点之前且距离在阈值内的所有点作为集合A；
         for point in A:
           求出集合A中的点与当前点的时间间隔；
-          将时间间隔大于阈值的点标记为长暂停；
+        将时间间隔大于阈值的点标记为长暂停；
  
 ## 2.2 轨迹预处理: {-}
 暂不考虑
