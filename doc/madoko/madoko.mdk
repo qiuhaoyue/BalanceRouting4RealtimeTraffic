@@ -98,8 +98,8 @@ GPS点按照suid放入内存，将定位无效的点丢弃。当某一队列中�
   next_gid为null的是一条路的总的路况，该记录唯一。
   (gid, next_gid, reference, time, average_speed, class_id, name, length, to_cost, reverse_cost)
 
-# 2. 核心算法 {-}
-## 2.1 长暂停标记： {-}
+# 3. 核心算法 {-}
+## 3.1 长暂停标记： {-}
 
 ![label_stop]
 
@@ -114,15 +114,15 @@ GPS点按照suid放入内存，将定位无效的点丢弃。当某一队列中�
           求出集合A中的点与当前点的时间间隔；
         将时间间隔大于阈值的点标记为长暂停；
  
-## 2.2 轨迹预处理: {-}
+## 3.2 轨迹预处理: {-}
 暂不考虑
         
-## 2.3 道路匹配： {-}
+## 3.3 道路匹配： {-}
 算法参考论文：“Online map-matching based on Hidden Markov model for real-time traffic sensing applications”
 
   实现：[在线的HMMM算法]，在这基础上可能会进一步修改。
  
-## 2.4 路况计算： {-}
+## 3.4 路况计算： {-}
 
 
 ![路况更新模块]
