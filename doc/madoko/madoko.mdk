@@ -20,6 +20,7 @@ Doc class     : [10pt]article
 
 
 ![系统框架图]
+
 黄色部分为线程的一次执行。
 
 [系统框架图]: images/framework.jpg "framework" { width:auto; max-width:90% }
@@ -80,21 +81,19 @@ GPS点按照suid放入内存，将定位无效的点丢弃。当某一队列中�
 
 
 ## 2.7 路况片段计算模块： {-}
-计算车辆在经过的道路上消耗的时间，由此推算其经过的道路的路况
+计算车辆点在道路匹配后获得的路由信息，推算其经过的道路的路况。
   
   
   输入：单辆出租车的GPS点(suid, utc, lat, lon, head, ostdesc, stop, Gid, Edge_offset, route, interval, pre_gid, pre_offset)序列
   
-  输出：某一时段内的路况信息，道路的路况包括2种，next_gid不为null的是指定下一条路的travel time，对于不同的next_gid速度不同，
-  next_gid为null的是一条路的总的路况，该记录唯一。
-  (gid, next_gid, reference, time, average_speed, class_id, name, length, to_cost, reverse_cost)
+  输出：局部，不完整的路况信息，(seq, gid, next_gid, time, percent, interval, tmstp, suid, utc, start_pos)。
+  seq为时间段的序号。
 
 ## 2.8 更新汇总模块： {-}
 为防止频繁写数据库带来的时间消耗，对插入的数据信息进行汇总，统一写入。
   
   
   输入：线程对应的一段GPS序列探测到的路况(seq, gid, next_gid, time, percent, interval, tmstp, suid, utc, start_pos)
-  seq为时间段的序号。
   
   输出：当更新记录数大于某一阈值或时间大于某一阈值时执行写入(避免数据过时)。
   
