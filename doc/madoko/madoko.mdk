@@ -80,11 +80,10 @@ GPS点按照suid放入内存，将定位无效的点丢弃。当某一队列中�
 
 
 ## 2.7 路况片段计算模块： {-}
-计算车辆在经过的道路上消耗的时间，由此
-再进行聚合，计算(道路A,道路B)的通过时间,以及某一条道路的通过时间(对于没有结果的道路,使用同等级道路的平均值作为缺省值)
+计算车辆在经过的道路上消耗的时间，由此推算其经过的道路的路况
   
   
-  输入：某一时段内的(5分钟？)GPS记录以及地图信息
+  输入：单辆出租车的GPS点(suid, utc, lat, lon, head, ostdesc, stop, Gid, Edge_offset, route, interval, pre_gid, pre_offset)序列
   
   输出：某一时段内的路况信息，道路的路况包括2种，next_gid不为null的是指定下一条路的travel time，对于不同的next_gid速度不同，
   next_gid为null的是一条路的总的路况，该记录唯一。
@@ -112,7 +111,10 @@ GPS点按照suid放入内存，将定位无效的点丢弃。当某一队列中�
 每间隔某一段时间后执行(例如5分钟，具体根据GPS数据处理延时)，若延迟低，可以不分段，只记录当前路况。
 
 输入：指定时间(utc)内的路况片段
-输出：指定时间内的总路况，写入traffic数据库。
+
+输出：指定时间内的总路况，道路的路况包括2种，next_gid不为null的是指定下一条路的travel time，对于不同的next_gid速度不同，
+  next_gid为null的是一条路的总的路况，该记录唯一。将(gid, next_gid, reference, time, average_speed, class_id, name, length, to_cost, reverse_cost)
+  信息写入traffic数据库。
 
 # 3. 核心算法 {-}
 ## 3.1 长暂停标记： {-}
