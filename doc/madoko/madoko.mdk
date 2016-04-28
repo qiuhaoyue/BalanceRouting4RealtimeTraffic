@@ -18,12 +18,12 @@ Doc class     : [10pt]article
 
 
 
+![framework]
 
-![系统框架图]
+[framework]: images/framework.jpg "framework" { width:auto; max-width:90% }
 
 黄色部分为线程的一次执行。
 
-[系统框架图]: images/framework.jpg "framework" { width:auto; max-width:90% }
 
 # 2. 模块说明 {-}
 
