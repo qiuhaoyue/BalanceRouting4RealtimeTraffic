@@ -16,14 +16,13 @@ Doc class     : [10pt]article
 
 # 1. 系统框架图 {-}
 
+
+
+
 ![系统框架图]
+黄色部分为线程的一次执行。
 
 [系统框架图]: images/framework.jpg "framework" { width:auto; max-width:90% }
-
-
-
-
-黄色部分为线程的一次执行。
 
 # 2. 模块说明 {-}
 
@@ -80,14 +79,14 @@ GPS点按照suid放入内存，将定位无效的点丢弃。当某一队列中�
   输出：单辆出租车的GPS点(suid, utc, lat, lon, head, ostdesc, stop, Gid, Edge_offset, route, interval, pre_gid, pre_offset)序列
 
 ## 2.7 更新汇总模块： {-}
-为防止频繁写数据库带来的时间消耗，对插入的GPS点信息进行汇总，统一写入。
+为防止频繁写数据库带来的时间消耗，对插入的数据信息进行汇总，统一写入。
   
   
   输入：处理完毕的GPS流(suid, utc, lat, lon, head, ostdesc, stop, Gid, Edge_offset, route, interval, pre_gid, pre_offset)
   
   输出：当更新记录数大于某一阈值或时间大于某一阈值时执行写入，并触发路况更新。
 
-## 2.8 路况更新模块： {-}
+## 2.8 路况片段计算模块： {-}
 更新模块写入数据后触发，从GPS数据库中读取处理完毕的出租车信息，计算车辆在经过的道路上消耗的时间，
 再进行聚合，计算(道路A,道路B)的通过时间,以及某一条道路的通过时间(对于没有结果的道路,使用同等级道路的平均值作为缺省值)
   
@@ -97,6 +96,10 @@ GPS点按照suid放入内存，将定位无效的点丢弃。当某一队列中�
   输出：某一时段内的路况信息，道路的路况包括2种，next_gid不为null的是指定下一条路的travel time，对于不同的next_gid速度不同，
   next_gid为null的是一条路的总的路况，该记录唯一。
   (gid, next_gid, reference, time, average_speed, class_id, name, length, to_cost, reverse_cost)
+
+## 2.9 GPS备份： {-}
+
+## 2.10 路况聚合模块： {-}
 
 # 3. 核心算法 {-}
 ## 3.1 长暂停标记： {-}
