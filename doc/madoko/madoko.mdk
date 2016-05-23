@@ -165,8 +165,49 @@ GPS点按照suid放入内存，将定位无效的点丢弃。当某一队列中�
     2.将所有gps点挖掘出的路况进行聚合；
  
 
+# 4. 相关工作 {-}
 
+1. Real-time freeway traffic state estimation based on extended Kalman filter: a general approach
 
+  对于高速公路上的路况计算采用模型(extended Kalman filter)的方式估计各类变量，但高速公路的情况较为简单，该方法在城市中不适用。
+
+2. Real-Time Traffic Volume Estimation with Fuzzy Linear Regression
+  
+  同样是基于模型，对交通流量进行预测，较为精确，但模型的输入是道路的流量与拥挤程度，对于浮动车来说无法直接获取到这2种信息。
+
+3. Study on Vehicle Navigation System with Real-time Traffic Information
+
+  利用探测车来探测，由中心节点进行汇总，计算路况，并提供导航。具体如何计算路况或导航并没有介绍。除了静态路段外，根据路况以及道路的属性进行动态的道路分段(可能跨越多个物理道路)。实验也是在北京做的。
+
+4. Traffic Estimation And Prediction Based On Real Time Floating Car Data
+
+  基于600，000辆私家车gps数据的实时路况系统，3分钟更新一次，通过网页可以获取，主要是针对意大利的摩托车道和一些主干道。
+
+  道路匹配(经纬度和方向)->计算路由->计算路由道路上的时间，与我们的计算过程类似，但并没有给出具体实现，最后提供了几种估计未来路况的方法。
+
+5. Real-time urban traffic monitoring with global positioning system-equipped vehicles
+
+  使用point-to-curve道路匹配算法(做了改进)。使用eSMS（estimated space mean speed）并将其转换为更合理的路况量度
+
+  1.道路匹配后的预处理：存储gps点，相同路段的点存在同一个数据结构中，对于每一个数据结构(对应一个路段),计算其第一个点到每个点的曲线距离，并作为gps点的一个属性存储。
+  
+  2.求eSMS：将某一路段上的点的速度曲线近似为2次方程。但计算路况时只取其平滑的部分(对加速度做限制)作为参考，并计算平均速度。最后对所有车的速度求eSMS。
+  
+  3.将eSMS转化为一个更合理的smooth index(0,1之间，0表示拥堵，1表示畅通)
+实验：上海6000辆出租车。该方法将状态为空车的出租车数据丢弃，每4分钟算一次，没有考虑不同道路之间的路由。通过视频来人工判断路况，分5个等级，时间花费也较低
+
+6. (1)Real-time Urban Traffic Sensing with GPS Equipped
+Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe Vehicles
+
+  在storm上部署实时路况探测，同样丢弃了空车的数据点，使用HMMM进行道路匹配，Fuzzy C-Means Clustering algorithm来去除一些不正常的行驶行为对路况的影响，将车辆探测到的速度分为2组，高速与低速，只有规模大的那一组会被采用。道路匹配是最耗时的部分
+
+7. Traffic State Detection with Floating Car Data in Road Networks
+
+  考虑了trafic center和出租车的信息交互过程。最小化信息交互次数，出租车在本地判断是否将该车在某一道路上的travel time（进入道路与离开道路的时间差）上传至中心(若travel time与本地已知的time差距大于某一阈值，则上传)。
+出租车在离开道路后上传路况，中心需要对时间做修改，比如10：45上传出租车通过道路A需要30分钟，那么该路况同时也是10：15得路况。
+
+  对路况做预测，并做动态导航
+以预测为主，出租车的数据用于纠正历史信息，所以始终是有延迟的
 [在线的HMMM算法]: https://github.com/bmwcarit/barefoot
 
 
