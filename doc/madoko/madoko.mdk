@@ -165,7 +165,7 @@ GPS点按照suid放入内存，将定位无效的点丢弃。当某一队列中�
     2.将所有gps点挖掘出的路况进行聚合；
  
 
-# 4. 相关工作 {-}
+# 4. 相关工作调研 {-}
 
 1. Real-time freeway traffic state estimation based on extended Kalman filter: a general approach
 
@@ -194,7 +194,8 @@ GPS点按照suid放入内存，将定位无效的点丢弃。当某一队列中�
   2.求eSMS：将某一路段上的点的速度曲线近似为2次方程。但计算路况时只取其平滑的部分(对加速度做限制)作为参考，并计算平均速度。最后对所有车的速度求eSMS。
   
   3.将eSMS转化为一个更合理的smooth index(0,1之间，0表示拥堵，1表示畅通)
-实验：上海6000辆出租车。该方法将状态为空车的出租车数据丢弃，每4分钟算一次，没有考虑不同道路之间的路由。通过视频来人工判断路况，分5个等级，时间花费也较低
+
+  实验：上海6000辆出租车。该方法将状态为空车的出租车数据丢弃，每4分钟算一次，没有考虑不同道路之间的路由。通过视频来人工判断路况，分5个等级，时间花费也较低
 
 6. (1)Real-time Urban Traffic Sensing with GPS Equipped
 Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe Vehicles
@@ -208,6 +209,18 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
 
   对路况做预测，并做动态导航
 以预测为主，出租车的数据用于纠正历史信息，所以始终是有延迟的
+
+# 5. 改进方向 {-}
+
+  1. 计算当前的实时路况，不对点做分割，接受一个点处理一个点，另外有另一个进程进行延时处理，
+进行轨迹切割(切割的时机可能有：1.长暂停，避免探测的路况与当前相隔太久而没有参考价值 2.行驶的道路发生了改变)，
+计算更精准的路况(轨迹多，道路匹配更精确，借此导出的路由也更准确)，并根据该路况对实时路况进行反馈(如果道路相同，速度有出入，则对速度进行修正，如果道路不同，则尽量消除之前由该轨迹探测的路况对当前路况的影响)。
+
+  2. 因为一条道路总的路况分为路口转向时间与行驶时间，路口信号的影响可以不用考虑，包含在转向延迟里。
+  
+  3. 对于无法正确匹配但本身没有异常的点单独存一份，用作以后挖掘新的道路。例子：(12788,2010-04-06 00:00:24)	lat:39.91935,lon:116.53758,head:357,speed:22.12,distance:0,min_matching_distance:-1.0, (12788,2010-04-06 00:01:24)	lat:39.93131,lon:116.53687,head:357,speed:22.12,distance:0,min_matching_distance:-1.0, (12788,2010-04-06 00:02:24)	lat:39.9396,lon:116.53815,head:72,speed:15.43,distance:0,min_matching_distance:-1.0, (12788,2010-04-06 00:03:19)
+
+  4. 
 [在线的HMMM算法]: https://github.com/bmwcarit/barefoot
 
 
