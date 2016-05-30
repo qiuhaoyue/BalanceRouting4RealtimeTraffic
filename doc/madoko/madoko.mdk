@@ -18,11 +18,12 @@ Doc class     : [10pt]article
 
 
 
+
 ![new_framework]
 
-[new_framework]: images/new_framework.jpg "new_framework" { width:auto; max-width:90% }
+黄色部分为线程的一次执行,棕红色为路况结果。
 
-黄色部分为线程的一次执行,红色为路况结果。
+[new_framework]: images/new_framework.jpg "new_framework" { width:auto; max-width:90% }
 
 
 # 2. 模块说明 {-}
@@ -37,7 +38,7 @@ Doc class     : [10pt]article
   输出：按suid分割的GPS流，并简单丢弃定位无效的点，GPS点按照suid存入内存队列。
   
 ## 2.2 OHMMM道路匹配出租车队列： {-}
-在线的HMMM匹配，无延迟，但精确度不高。输出的GPS点带有
+在线的HMMM匹配，有一定延迟，目前设定的匹配窗口最大值为5。输出的GPS点带有
   Gid，Edge_offset,route三个字段，分别表示将这个点匹配的道路id，偏移以及这个点的前一个点到当前sample通过的路径。
   
   
@@ -62,13 +63,14 @@ Doc class     : [10pt]article
   
   输出：启动一个线程，根据一个GPS序列进行路况计算。
   
-## 2.54 轨迹预处理： {-}
+## 2.5 轨迹预处理： {-}
 输入同一辆出租车的点序列，根据距离与时间间隔（可修改）插入点的长暂停标记。以后可能会添加轨迹相关的筛选。
   
   
   输入：单辆出租车的GPS点序列。
   
   输出：单辆出租车的GPS点序列，每个GPS点添加属性stop。
+  
 ## 2.6 实时路况计算模块： {-}
 根据新获取的GPS点计算路况。如果与上一个GPS点在同一道路上则直接更新该道路路况，如果上一个点不在
 同一道路上，则需要先计算与上一个点之间的路由，并更新路由上所有道路的路况
