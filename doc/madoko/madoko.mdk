@@ -157,15 +157,15 @@ Doc class     : [10pt]article
 ## 3.4 路况计算： {-}
 
 
-![路况更新模块]
-
-[路况更新模块]: images/update_traffic.jpg "update_traffic" { width:auto; max-width:90% }
-
-    如图所示，可按suid划分后并行处理。
     
 
   
-    1.先计算从每个点及其与上一个点之间的路由信息获取到的路况；
+1.先计算从每个点及其与上一个点之间的路由信息获取到的路况；
+
+    
+![update_traffic]
+
+[update_traffic]: images/update_traffic.jpg "update_traffic" { width:auto; max-width:90% }
 
       for each point in GPS database:
         for each road in route://遍历出租车从上一个点到当前点经过的所有道路
@@ -177,7 +177,7 @@ Doc class     : [10pt]article
           当前点的间隔(即与上一个gps点的时间差)*道路长度/当前道路到下一条道路的速度*覆盖率/totaltime；
     
   
-    2.将所有gps点挖掘出的路况进行聚合；
+2.将所有gps点挖掘出的路况进行聚合；
  
 
 # 4. 相关工作调研 {-}
