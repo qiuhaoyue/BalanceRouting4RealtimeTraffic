@@ -22,8 +22,14 @@ sudo apt-get update
 # Install pgRouting packages
 sudo apt-get install postgresql-9.3-pgrouting
 
-# Install osm2pgrouting package
-sudo apt-get install osm2pgrouting
+# Install osm2pgrouting package,version 2.1
+apt-get install libboost-dev
+git clone https://github.com/pgRouting/osm2pgrouting
+cd osm2pgrouting
+cmake -H. -Bbuild
+cd build/
+make
+make install
 
 # Install workshop material (optional)
 sudo apt-get install pgrouting-workshop
@@ -49,7 +55,7 @@ sudo /etc/init.d/postgresql restart
 
 #Download Beijing.osm from http://download.bbbike.org/osm/  or open street map
 cd pgRouting/osm2pgrouting-master
-osm2pgrouting -file ~/pgRouting/Beijing.osm -conf /usr/share/osm2pgrouting/mapconfig.xml -dbname routing -user postgres -host localhost -clean
+osm2pgrouting -f /mnt/freenas/road/Beijing.osm -c /usr/share/osm2pgrouting/mapconfig.xml --dbname taxi_data --username postgres --password <secret> --clean
 
 
 #if you want to see the data in the database,
