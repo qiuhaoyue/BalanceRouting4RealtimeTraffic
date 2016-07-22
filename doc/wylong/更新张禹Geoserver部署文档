@@ -1,0 +1,74 @@
+Ubuntu 14.04 安装PostgreSQL /postgis2.2.2过程文档
+
+
+1. Update (or create it if it isn’t there) the file named /etc/apt/sources.list and add this line to it:
+deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main
+
+2. Update the apt-get repostitor with the following two lines (note the first threes lines are a single continued command line)
+wget --quiet -O - \ 
+https://www.postgresql.org/media/keys/ACCC4CF8.asc | \
+sudo apt-key add - 
+sudo apt-get update
+
+3. Install postgresql and relative packages.
+wang@kubuntu:~$ sudo apt-get -y install postgresql-9.4 postgresql-server-dev-9.4 postgresql-contrib-9.4 postgresql-client-9.4 postgresql-client-common gdal-bin binutils libgeos-c1 libgeos-dev libgdal1-dev libxml2 libxml2-dev libxml2-dev checkinstall libproj-dev libpq-dev python-software-properties build-essential
+
+
+4. Some missing packages for some reasons.
+wang@kubuntu:~$ sudo apt-get update –fix-missing
+
+5. Install PostGIS.   http://postgis.net/source/ 下载postgis-2.2.2.tar.gz
+wang@kubuntu:~$ tar -zxvf postgis-2.2.2.tar.gz 
+wang@kubuntu:~$ cd postgis-2.2.2
+wang@kubuntu:~$ ./configure –with-raster –with-topology
+wang@kubuntu:~$ make
+wang@kubuntu:~$ make install
+
+6. Install pgRouting packages
+wang@kubuntu:~$ sudo apt-get install postgresql-9.4-pgrouting
+
+7. Install osm2pgrouting package
+wang@kubuntu:~$ sudo apt-get install osm2pgrouting
+
+8. Install workshop material (optional)
+wang@kubuntu:~$ sudo apt-get install gprouting-workshop
+
+
+9. Create a database called "routing", you can name it to another one
+wang@kubuntu:~$ sudo su - postgres
+postgres@kubuntu:~$ createdb routing
+
+10. Add PostGis fuctions to "routing"
+
+postgres@kubuntu:~$ psql -d routing -c "CREATE EXTENSION postgis;"
+postgres@kubuntu:~$ psql -d routing -c "CREATE EXTENSION gprouting;"
+
+11. Install pgAdmin3 and change the password of user postgres
+wang@kubuntu:~$: sudo apt-get install pgAdmin3
+wang@kubutnu:~$: sudo su – postgres
+postgres@kubuntu:~$ psql
+postgres=# : alter user postgres with password 'postgres';
+
+12. Download Beijing.osm form:
+https://github.com/xyongcn/BalanceRouting4RealtimeTraffic/tree/master/map
+postgres@kubuntu:~$ osm2pgrouting -f ~/map/Beijing.osm -c /usr/share/osm2pgrouting/mapconfig.xml -d routing -U postgres -h localhost -W postgres --clean
+
+postgresql setup over.!
+/////////////////////////////////////////////////////////////////////////
+13. Setup the geoserver
+wang@kubuntu:~$: sudo apt-get install tomcat7
+#down load geoserver-2.8.1-war, unzip and then
+wang@kubuntu:~$: wget http://jaist.dl.sourceforge.net/project/geoserver/GeoServer/2.8.1/geoserver-2.8.1-war.zip
+wang@kubuntu:~$: cp geoserver.war /var/lib/tomcat7/webapps
+wang@kubuntu:~$: /etc/init.d/tomcat7 restart
+
+
+14. GeoServer login page at (gasping) http://localhost:8080/geoserver/.
+ #The default username and password is admin and geoserver
+
+15. install GeoExt and Openlayers
+#just copy the www in pgRouting folder in to /var/www
+#GeoExt, OpenLayers and Ext 3.x will be ready for use.
+#next we just need to edit: in routing-final.html: 
+#edit the bounds of the map:in php/pgrouting.php: 
+
