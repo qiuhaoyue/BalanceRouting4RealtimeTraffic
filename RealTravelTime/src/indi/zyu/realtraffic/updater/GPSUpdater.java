@@ -61,7 +61,7 @@ public class GPSUpdater {
 				int count = rs.getInt(1);
 				//table not exists, create it
 				if(count == 0){
-					sql = "CREATE TABLE " + gps_table + "(suid bigint, utc bigint, lat bigint, lon bigint,"
+					sql = "CREATE TABLE " + gps_table + "(suid bigint, utc bigint, lat double precision, lon double precision,"
 							+ "head bigint, stop integer, gid integer, Edge_offset double precision, route text,"
 							+ "interval double precision, pre_gid integer, pre_offset double precision);";
 					Common.logger.debug(sql);

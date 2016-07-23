@@ -36,17 +36,17 @@ public class Common {
 	
 	//some config on database
 	static String JdbcUrl  = "jdbc:postgresql://localhost:5432/";
-	//static String JdbcUrl  = "jdbc:postgresql://ip:port/";
+	//static String JdbcUrl  = "jdbc:postgresql://166.111.68.99:11044/";
 	
-	//static String Host     = "secret";
+	//static String Host     = "166.111.68.99";
 	static String Host     = "localhost";
 	
-	//static int Port        = secret;
+	//static int Port        = 11044;
 	static int Port        = 5432;
 	
-	static String UserName = "secret";
-	static String UserPwd  = "secret";
-	static String DataBase = "secret";
+	static String UserName = "postgres";
+	static String UserPwd  = "p@ssw0rd";
+	static String DataBase = "taxi_data";
 	
 	public static String OriginWayTable = "ways";
 	//static String OneWayTable    = "oneway_test";

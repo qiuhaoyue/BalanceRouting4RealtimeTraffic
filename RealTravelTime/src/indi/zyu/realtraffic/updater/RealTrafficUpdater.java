@@ -6,15 +6,9 @@ import indi.zyu.realtraffic.road.AllocationRoadsegment;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 /** 
  * 2016Äê5ÔÂ27ÈÕ 
@@ -27,7 +21,7 @@ public class RealTrafficUpdater {
 	
 	private Connection con = null;
 	private Statement stmt = null;
-	private static Lock lock = null;
+	//private static Lock lock = null;
 	
 	public RealTrafficUpdater() throws SQLException{
 		
@@ -49,7 +43,7 @@ public class RealTrafficUpdater {
 				String sql = "DROP TABLE IF EXISTS " + road_slice_table + ";";
 				stmt.executeUpdate(sql);
 				//create slice table
-				sql = "CREATE TABLE " + road_slice_table + "(gid integer, base_gid integer,"
+				sql = "CREATE TABLE " + road_slice_table + "(gid integer, base_gid integer, length integer,"
 						+ " time double precision, average_speed double precision);";
 				Common.logger.debug(sql);
 				stmt.executeUpdate(sql);
@@ -77,9 +71,9 @@ public class RealTrafficUpdater {
 		try{
 			//insert road traffic
 			String sql = "Insert into " + Common.real_road_slice_table + seq + Common.Date_Suffix
-					+ "(gid, base_gid, time, average_speed) values \n";
+					+ "(gid, base_gid, length, time, average_speed) values \n";
 			AllocationRoadsegment road = Common.roadlist[gid];
-			sql += "(" + road.gid + ", " + road.base_gid + ", " + road.time + ", " + road.avg_speed + ");";
+			sql += "(" + road.gid + ", " + road.base_gid + ", " + road.length + ", " + road.time + ", " + road.avg_speed + ");";
 			//Common.logger.debug(sql);
 			stmt.executeUpdate(sql);
 			

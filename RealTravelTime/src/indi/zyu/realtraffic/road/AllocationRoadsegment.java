@@ -114,17 +114,26 @@ public class AllocationRoadsegment extends RoadSegment {
 		if(speed <= 0){
 			return;
 		}
+		if(!check_seq(sample)){
+			return;
+		}
+		
 		road_lock.lock();
 		this.avg_speed = speed;
 		this.time = length / avg_speed;
 		road_lock.unlock();
-		check_seq(sample);
+		
 	}
 	
 	public void update_time(double time, Sample sample){
+		
 		if(time <= 0){
 			return;
 		}
+		if(!check_seq(sample)){
+			return;
+		}
+		
 		road_lock.lock();
 		this.time = time;
 		this.avg_speed = length / time;
@@ -132,9 +141,7 @@ public class AllocationRoadsegment extends RoadSegment {
 			this.avg_speed = Common.max_speed;
 			this.time = length / avg_speed;
 		}
-		road_lock.unlock();
-		
-		check_seq(sample);
+		road_lock.unlock();	
 	}
 	
 	public double get_turning_time(int gid){
@@ -154,20 +161,25 @@ public class AllocationRoadsegment extends RoadSegment {
 		if(time <= 0){
 			return;
 		}
+		if(!check_seq(sample)){
+			return;
+		}
+		
 		turning_lock.lock();
 		turning_time.put(gid, time);
 		turning_lock.unlock();
-		check_seq(sample);
+		
 	}
 	
-	private void check_seq(Sample sample){
+	private boolean check_seq(Sample sample){
 		int cur_seq = Common.get_seq(sample);
 		//Common.logger.debug("cur: " + cur_seq + "old " + this.seq);
 		//update traffic in last seq
 		if(this.seq == -1){
 			this.seq = cur_seq;
-			return;
+			return true;
 		}
+		
 		if(cur_seq > this.seq){
 			seq_lock.lock();
 			int old_seq = this.seq;	
@@ -181,7 +193,19 @@ public class AllocationRoadsegment extends RoadSegment {
 			    e.printStackTrace();
 			}
 			Common.logger.debug("update real traffc success! seq: " + old_seq + " len: " + this.length);
-			
+			//no traffic sensed in the interval
+			/*if(cur_seq - old_seq > 1){
+				//get default speed
+				for(int i=old_seq+1; i< cur_seq; i++){
+					
+				}
+			}*/
+			return true;		
 		}
+		else if(this.seq - cur_seq <= Common.delay_update_thresold){			
+			return true;
+		}
+		//sample is too old
+		return false;
 	}
 }

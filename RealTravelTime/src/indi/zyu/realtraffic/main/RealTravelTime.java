@@ -2,7 +2,6 @@ package indi.zyu.realtraffic.main;
 
 import indi.zyu.realtraffic.common.Common;
 import indi.zyu.realtraffic.gps.Sample;
-import indi.zyu.realtraffic.process.ProcessThread;
 import indi.zyu.realtraffic.process.TaxiInfo;
 
 import java.sql.Connection;
@@ -10,13 +9,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-
-import com.bmwcarit.barefoot.matcher.MatcherCandidate;
-import com.esri.core.geometry.Point;
 
 /** 
  * 2016Äê3ÔÂ11ÈÕ 
@@ -37,22 +29,20 @@ public class RealTravelTime {
 		SimpleDateFormat tempDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 		
 		Common.Date_Suffix = (new SimpleDateFormat("_yyyy_MM_dd")).format(new java.util.Date());
-		Common.init(40000, 10);
+		Common.init(40000);
 		
 		//clear previous travel table 
-		Common.clear_travel_table("_2016_06_18");
+		//Common.clear_travel_table("_2016_07_17");
 
-    	String datetime = tempDate.format(new java.util.Date());
-    	Common.logger.debug("-----Real travel time process start:	"+datetime+"-------!");
+    	String start_time = tempDate.format(new java.util.Date());
+    	Common.logger.debug("-----Real travel time process start:	"+start_time+"-------!");
     	Common.logger.debug("-----get road info:	-------!");
     	
     	//Common.change_scheme_roadmap(Common.OriginWayTable);//add some column
-    	Common.init_roadlist2();//initialize roadlist
-    	//Common.update_roadlist("allroad_time_nonrush_1", true);//initialize road speed
+    	Common.init_roadlist();//initialize roadlist
+
     	Common.logger.debug("-----start simulate gps point:	-------!");
     	
-    	//ProcessGPS processor = new ProcessGPS(15, 3, 5, 40000, 90);
-    	//ProcessGPS processor = new ProcessGPS(15, 3, 5, 40000, 10);
     	Connection con = null;
     	Statement stmt = null;
 		ResultSet rs = null;
@@ -61,40 +51,43 @@ public class RealTravelTime {
 			Common.logger.error("Failed to make connection!");
 			return;
 		}
-		
+		int counter = Common.emission_step * Common.emission_multiple;//to control generate rate
 		try {
 			stmt = con.createStatement();
 			String sql = "select * from " + Common.ValidSampleTable + ";"; //+ " limit 5000;";
 			//String sql = "select * from " + Common.SingleSampleTable + " limit 2000";
 			Common.logger.debug(sql);
     		rs = stmt.executeQuery(sql);
-    		int counter = 0;//to control generate rate
     		
-    		//start aggregate timer;
-    		//TravelTimeAggregate aggregater = new TravelTimeAggregate(15);
     		Common.logger.debug("select finished");
+    		
     		//start process gps point
     		while(rs.next()){
-    			counter++;
+    			//counter += 5;
+    			long utc = rs.getLong("utc");
+    			//to control data emission speed
+    			long interval = utc - Common.start_utc;
+    			
+    			//wait until utc of gps is in the time range
+    			while(interval >= counter){
+					counter += Common.emission_step * Common.emission_multiple;
+    				Thread.sleep(Common.emission_step * 1000);
+    				//Common.logger.debug("Date: " + gps.utc);
+    				Common.logger.debug("time: " + counter);
+				}
+    			
+    			//utc of gps is in the time range, process the point
     			Sample gps = new Sample(rs.getLong("suid"), rs.getLong("utc"), rs.getLong("lat"), 
     		    		rs.getLong("lon"), (int)rs.getLong("head"), rs.getLong("speed"), rs.getLong("distance"));
     			
     			int suid = (int) gps.suid;
     			if(Common.taxi[suid] == null){
-    				Common.taxi[suid] = new TaxiInfo();	
+    				Common.taxi[suid] = new TaxiInfo();
+    				int number = suid % Common.thread_number;
+    				Common.thread_pool[number].put_suid(suid);
     			}
-    			//Common.taxi[suid].add_gps(gps);
-    			//preprocess
-    			/*if(Common.taxi[suid].preprocess(gps)){
-    				Common.fixedThreadPool.execute(new ProcessThread(suid, gps));
-    			}*/
-    			Common.ThreadPool.execute(new ProcessThread(suid, gps));
+    			Common.taxi[suid].add_gps(gps);
     			
-    			if(counter % 1000 == 0){
-    				Thread.sleep(20*1000);
-    				Common.logger.debug("Date: " + gps.utc);
-    				//Common.logger.debug("gps number: " + counter);
-    			}
     		}
 		}
 		catch (SQLException e) {
@@ -108,37 +101,22 @@ public class RealTravelTime {
 		}*/
 		finally{
 			con.commit();
-			//processor.clear();
 		}
 		//wait until all thread has finished
-		while(true){
-			if (Common.ThreadPool.isTerminated()){
+		/*while(true){
+			if (Common.thread_counter.get() == 0){
 				break;
 			}
-			/*if (processor.cachedThreadPool.isTerminated()){
-				break;
-			}*/
 			Thread.sleep(10000);
-		}
+		}*/
 		
-		datetime = tempDate.format(new java.util.Date());
-		/*Common.logger.debug(Common.taxi[5434].matched_count + "/" + Common.taxi[5434].total_count);
-		Common.logger.debug("real match gid_list: " + Common.taxi[5434].gid_list.toString());
-		Common.logger.debug("size: " + Common.taxi[5434].gid_list.size());
-		List<MatcherCandidate> sequence = Common.taxi[5434].state.sequence();
-		Common.logger.debug("sequence: size" + sequence.size());
-		String str = "";
-		for(int i=0; i< sequence.size(); i++){
-			MatcherCandidate estimate = sequence.get(i);
-			int id = (int)estimate.point().edge().id();
-			str += id + ",";
-		}
-		Common.logger.debug(str);*/
-		//Common.taxi[5434].state.sequence()
-    	Common.logger.debug("-----Real travel time process finished:	"+datetime+"-------!");
-    	/*Common.logger.debug("match time: " + Common.match_time 
-				+ ";estimate road time " + Common.estimate_road_time + ",counter " 
-				+ Common.estimate_road_counter + ";turing time " + Common.estimate_turning_time
-				+ ",counter " + Common.estimate_turning_counter);	*/
+		String end_time = tempDate.format(new java.util.Date());
+
+    	Common.logger.debug("-----Real travel time process finished:	"+end_time+"-------!");
+    	Common.logger.debug("process time: " + start_time + " - " + end_time + "counter: " + counter);
+
+    	//Common.logger.debug("same road estimation: " + Common.same_road_count.get());
+    	//Common.logger.debug("diff road estimation: " + Common.diff_road_count.get());
 	}
+	
 }

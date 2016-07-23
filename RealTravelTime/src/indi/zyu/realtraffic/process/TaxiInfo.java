@@ -5,6 +5,7 @@ import indi.zyu.realtraffic.gps.Sample;
 import indi.zyu.realtraffic.road.AllocationRoadsegment;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
@@ -36,30 +37,19 @@ public class TaxiInfo {
 	int remain_vector_size = 10;
 	//params to judge long stop
 	int interval_thresold = 5;
-	static double distance_thresold = 50.0;
+	double distance_thresold = 50.0;
 	double speed_thresold;
 	//if current time of received gps point exceed pre_utc by this thresold, queue will be emptyed
 	int timeout_thresold = 10;
 	double time_increment;
 	double speed_increment;
 	double jam_speed = 2.0;
-
-	//just for debug
-	//int total_count = 0;
-	//int matched_count = 0;
-	long start_time = 0;
-	long end_time = 0;
-	
-	private static Lock lock = null;
 	
 	
 	public TaxiInfo(){
 		taxi_queue = new ArrayList();
 		state = new KState<MatcherCandidate, MatcherTransition, 
 				MatcherSample>(Common.match_windows_size, -1);
-		//state = new KState<MatcherCandidate, MatcherTransition, 
-		//				MatcherSample>();
-		lock = new ReentrantLock();
 		//pre_gid = -1;
 		speed_thresold = 0.1;
 		//pre_utc = new Date(0);
@@ -67,53 +57,68 @@ public class TaxiInfo {
 		//gid_list = new ArrayList<Integer>();
 		
 	}
-	//add gps to queue
-	synchronized public boolean add_gps(Sample sample){
-
-		//preprocess
-		if(!preprocess(sample)){
-
-			return false;
+	//process gps point in queue
+	public void process(){
+		if(taxi_queue.isEmpty()){
+			return;
+		}
+		Object[] sample_list;
+		//Sample sample;
+		synchronized(taxi_queue){
+			//sample = taxi_queue.get(0);
+			//taxi_queue.remove(0);
+			sample_list = taxi_queue.toArray();
+			taxi_queue.clear();
 		}
 		
-		//misconvergency or match failed
-		if(!realtime_match(sample)){
-
-			return false;
-		}
-		
-		//Common.logger.debug("convergency point: " + sample.gid);
-		if(pre_sample == null){
-			//Common.logger.debug(sample.suid + " first point; gid: " + sample.gid);
-			taxi_queue.add(sample);
+		for(int i=0; i< sample_list.length; i++){
+			Sample sample = (Sample) sample_list[i];
+			//preprocess
+			if(!preprocess(sample)){
+				continue;
+			}
+					
+			//misconvergency or match failed
+			if(!realtime_match(sample)){
+				continue;
+			}
+					
+			//Common.logger.debug("convergency point: " + sample.gid);
+			if(pre_sample == null){
+				//Common.logger.debug(sample.suid + " first point; gid: " + sample.gid);
+				//taxi_queue.add(sample);
+				pre_sample = sample;
+				continue;
+			}
+					
+			//check whether to split seq
+			//1.change road
+			if(pre_sample.gid != sample.gid){
+				//calculate turning time
+				estimite_turning(sample);
+				//split();
+			}
+			//2. long stop
+			//else if(status == 1 && !taxi_queue.isEmpty()){
+				//split();
+			//}
+			//do not split, just estimite traffic by single point	
+			else{
+				estimite_road(sample);
+			}
+			//taxi_queue.add(sample);
 			pre_sample = sample;
-
-			return true;
 		}
 		
-		//check whether to split seq
-		//1.change road
-		if(pre_sample.gid != sample.gid && !taxi_queue.isEmpty()){
-			//calculate turning time
-			estimite_turning(sample);
-			//split();
-		}
-		//2. long stop
-		//else if(status == 1 && !taxi_queue.isEmpty()){
-			//split();
-		//}
-		//do not split, just estimite traffic by single point	
-		else{
-			estimite_road(sample);
-		}
-		taxi_queue.add(sample);
-	    pre_sample = sample;
-
-		return true;
+	}
+	//add gps to queue
+	public void add_gps(Sample sample){
+		synchronized(taxi_queue){
+			taxi_queue.add(sample);
+		}	
 	}
 	//preprocess of one gps point, return true if gps point is valid, otherwise return false 
 	public boolean preprocess(Sample sample){
-		
 		if(pre_sample == null){
 			return true;
 		}
@@ -130,7 +135,7 @@ public class TaxiInfo {
 		
 		if( interval > timeout_thresold * 60){
 			Common.logger.debug("time out!");
-			taxi_queue.clear();
+			//taxi_queue.clear();
 			//state = new KState<MatcherCandidate, MatcherTransition, MatcherSample>(6, -1);
 			status = 0;
 			return true;
@@ -160,9 +165,6 @@ public class TaxiInfo {
 			
 			//convergency point or top point if windows size exceed thresold or null
 			MatcherCandidate converge = this.state.update_converge(vector, matcher_sample);
-			
-			//Common.logger.debug("vector size: " + this.state.size() + ";seq size " 
-		    //		+ this.state.sequence().size() + "sample size:" + this.state.samples().size());
 			
 		    // test whether the point is unable to match
 		    MatcherCandidate estimate = this.state.estimate(); // most likely position estimate
@@ -239,14 +241,14 @@ public class TaxiInfo {
 			if(road.avg_speed < jam_speed){
 				double slowdown_speed = Common.roadlist[gid].avg_speed * 0.9;
 				road.update_avg_speed(restrict_speed(slowdown_speed, road.max_speed), sample);
-				road.time = road.length * 1000 / road.avg_speed;
 			}
 			//consider it error
 			return;
 		}
-		double speed = restrict_speed(offset * road.length * 1000 / interval, road.max_speed);
-		double smooth_speed = road.avg_speed * 0.9 + speed * 0.1;
+		double speed = restrict_speed(offset * road.length / interval, road.max_speed);
+		double smooth_speed = road.avg_speed * Common.smooth_alpha + speed * (1- Common.smooth_alpha);
 		road.update_avg_speed(restrict_speed(smooth_speed, road.max_speed), sample);
+		
 		//Common.logger.debug("estimate real traffic: " +  gid + " " + smooth_speed);
 	}
 	
@@ -255,6 +257,9 @@ public class TaxiInfo {
 			Common.logger.debug("route null");
 			return;
 		}
+		long interval = sample.utc.getTime()/1000 - pre_sample.utc.getTime()/1000;
+		int  total_length = 0;
+		
 		ArrayList<Double> coverage_list = new ArrayList<Double>();
 		//construct route gid list and coverage list
 		String[] str_gids=sample.route.split(",");
@@ -265,21 +270,28 @@ public class TaxiInfo {
 		//previous match is right
 		if(pre_sample.gid == Integer.parseInt(str_gids[0])){
 			coverage_list.add(1 - pre_sample.offset);
+			total_length += Common.roadlist[pre_sample.gid].length * (1 - pre_sample.offset);
 		}
 		//match wrong
 		else{
 			//just a estimated value
 			coverage_list.add(0.5);
+			total_length += Common.roadlist[Integer.parseInt(str_gids[0])].length * (1 - pre_sample.offset);
 		}
 		//fully covered road
 		for(int i=1; i<str_gids.length-1; i++){
 			route_gid.add(Integer.parseInt(str_gids[i]));
 			coverage_list.add(1.0);
+			total_length += Common.roadlist[Integer.parseInt(str_gids[i])].length;
 		}
 		//last road
 		route_gid.add(Integer.parseInt(str_gids[str_gids.length-1]));
 		coverage_list.add(sample.offset);
-		
+		total_length += Common.roadlist[Integer.parseInt(str_gids[str_gids.length-1])].length * sample.offset;
+		if(total_length / interval > Common.max_speed){
+			Common.logger.debug("route wrong, too fast");
+			return;
+		}
 		//start calulate route time
 		//calculate total time
 		double total_time = 0;
@@ -296,9 +308,8 @@ public class TaxiInfo {
 			Common.logger.debug("total time zero error!");
 			return;
 		}
-		//Common.logger.debug("total time: " + total_time);
 		//calculate time in each road
-		long interval = sample.utc.getTime()/1000 - pre_sample.utc.getTime()/1000;
+		
 		for(int i=0; i<route_gid.size(); i++){
 			int gid = route_gid.get(i);
 			double coverage = coverage_list.get(i);
@@ -324,11 +335,14 @@ public class TaxiInfo {
 			}
 			
 			//update time
-			Common.roadlist[gid].update_time(road_time * 0.9 + new_road_time * 0.1, sample);
+			double update_road_time = road_time * Common.smooth_alpha + new_road_time * (1-Common.smooth_alpha);
+			Common.roadlist[gid].update_time(update_road_time, sample);
 			//update turning time
 			if(new_turning_time > 0){
+				double update_turning_time = turning_time * Common.smooth_alpha + 
+						new_turning_time * (1-Common.smooth_alpha);
 				Common.roadlist[gid].update_turning_time(route_gid.get(i+1), 
-						turning_time * 0.9 + new_turning_time * 0.1, sample);
+						update_turning_time, sample);
 			}
 		}
 		
