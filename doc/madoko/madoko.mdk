@@ -237,6 +237,8 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
 
 [traffic_number_total]: images/traffic_number_total.png "traffic_number_total" { width:auto; max-width:90% }
 
+由于更改道路拆分标准后道路变少，4倍速度也基本能够处理，8倍速度时，在数据高峰期偏差明显。
+
 探测到的道路平均速度为：
 
 ![average_speed_comparison]
@@ -255,17 +257,24 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
 
 匹配窗口大小实验，选取suid小于1500的447辆出租车轨迹，与离线的HMMM比较，静止不动的点只处理一次，未对超时点做处理。对不同窗口大小下的匹配差错率以及由此计算出的路由差错率进行比较
 
-![mapmatching-comparison]
+![map-matching_comparison]
 
-[mapmatching-comparison]: images/mapmatching-comparison.png "mapmatching-comparison" { width:auto; max-width:90% }
+[map-matching_comparison]: images/map-matching_comparison.png "map-matching_comparison" { width:auto; max-width:90% }
 
-由于匹配错误的道路与正确道路往往较为接近，所以即使道路匹配错误，仍有一部分路由重合，路由的错误率只有道路匹配错误率的1/5左右
+
+由于匹配错误的道路与正确道路往往较为接近，所以即使道路匹配错误，仍有一部分路由重合，路由的错误率只有道路
+匹配错误率的1/5左右，但是由此探测出的道路速度同样会出现偏差(可能需要补充不同窗口大小下探测出的平均速度？).
+
+另外，由于窗口的变大，实时算法遗留在窗口中的点变多，可比较的点变少，所以会有一定抖动。
 
 ## 6.3 双向道路的拆分 {-}
 
 更新了osm2pgrouting的版本到2.1，新版本对于oneway的处理较好，导入的表中保留有one_way字段（0-未知,1-单向,2-双向,-1-单向但是几何上方向是相反的）
 
 共有87377条道路one_way为0的有52139，-1的有101,1的有34636,2的有501条。拆分完后140121条
+
+## 6.4 道路初始速度的获取 {-}
+待完成。使用历史数据作为参考标准。
 
 [在线的HMMM算法]: https://github.com/bmwcarit/barefoot
 
