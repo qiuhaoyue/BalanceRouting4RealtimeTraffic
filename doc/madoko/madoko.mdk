@@ -307,8 +307,59 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
 
 共有87377条道路one_way为0的有52139，-1的有101,1的有34636,2的有501条。拆分完后共140121条道路。
 
+道路类别说明：https://github.com/pgRouting/osm2pgrouting/wiki/OSM-TAGS-Highway
+
 ## 6.5 道路初始速度的获取 {-}
-待完成。使用历史数据作为参考标准，需要跑一周数据。
+一周数据路况图： 0201和0208的路况有抖动。
+
+![week_0201-04]
+![week_0205-08]
+![history_traffic]
+
+[history_traffic]: images/history_traffic.png "history_traffic" { width:auto; max-width:90% }
+
+
+[week_0201-04]: images/week_0201-04.png "week_0201-04" { width:auto; max-width:90% }
+
+[week_0205-08]: images/week_0205-08.png "week_0205-08" { width:auto; max-width:90% }
+
+
+系统启动时从历史库信息中获取当前时间段已知的路段信息，对于未知的路段，使用同等级别道路的平均速度作为初始值.
+运行数据后当天的路况会自动写入历史库。
+
+使用一周的数据(0201-0208)生成历史库信息，共5940900条路况，由于探测到的路况在开始时不精确，所以再次
+运行数据时0点的初始路况使用23:55-24:00的路况作为初始值。
+
+加入系统初始值后一天的路况分析(0202)：
+总的路况： ![init_week_0202]
+
+不同类型道路的路况比较： ![week_0202]
+
+总共有28类道路，探测到的路况主要在如下类别的道路上
+
+| class_id  |  name  | 路况数
+|:----|:---------:|:------:|
+| 104 | trunk     | 172747 |
+| 106 | primary   | 162314 |
+| 108 | secondary | 343078 |
+| 109 | tertiary  | 575388 |
+| 110 | residential  | 174404 |
+
+trunk 172747条路况
+
+primary 162314条路况 
+
+secondary 343078条路况 
+
+tertiary 575388条路况  
+
+residential 174404条路况 
+
+
+[week_0202]: images/week_0202.png "week_0202" { width:auto; max-width:90% }
+
+[init_week_0202]: images/init_week_0202.png "init_week_0202" { width:auto; max-width:90% }
+
 
 [在线的HMMM算法]: https://github.com/bmwcarit/barefoot
 
