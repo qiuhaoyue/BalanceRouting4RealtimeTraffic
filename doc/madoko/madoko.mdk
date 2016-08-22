@@ -307,7 +307,6 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
 
 共有87377条道路one_way为0的有52139，-1的有101,1的有34636,2的有501条。拆分完后共140121条道路。
 
-道路类别说明：https://github.com/pgRouting/osm2pgrouting/wiki/OSM-TAGS-Highway
 
 ## 6.5 道路初始速度的获取 {-}
 一周数据路况图： 0201和0208的路况有抖动。
@@ -345,21 +344,12 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
 | 109 | tertiary  | 575388 |
 | 110 | residential  | 174404 |
 
-trunk 172747条路况
-
-primary 162314条路况 
-
-secondary 343078条路况 
-
-tertiary 575388条路况  
-
-residential 174404条路况 
 
 
 [week_0202]: images/week_0202.png "week_0202" { width:auto; max-width:90% }
 
 [init_week_0202]: images/init_week_0202.png "init_week_0202" { width:auto; max-width:90% }
-
+<!-- end merge -->
 
 [在线的HMMM算法]: https://github.com/bmwcarit/barefoot
 
