@@ -269,7 +269,7 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
 目前看，窗口大小设置为6或7比较合理（窗口增大，匹配平均延迟不变，但最大延迟会增加）
 
 
-## 6.3 窗口大小对探测到的道路速度的影响
+## 6.3 窗口大小对探测到的道路速度的影响 {-}
 
 不同窗口大小下的平均速度几乎吻合
 
@@ -350,6 +350,11 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
 
 [init_week_0202]: images/init_week_0202.png "init_week_0202" { width:auto; max-width:90% }
 <!-- end merge -->
+
+## 6.6 道路速度的补充 {-}
+
+在历史路况与当前探测到的道路速度的基础上，对之后2个时间段（10分钟）的道路速度进行推测，如果之后2个时间段
+没有探测到的路况，则直接将推测的路况插入，否则对探测到的路况进行修正。详细见道路补充算法。
 
 [在线的HMMM算法]: https://github.com/bmwcarit/barefoot
 
