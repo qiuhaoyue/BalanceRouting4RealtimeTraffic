@@ -26,7 +26,7 @@ import com.bmwcarit.barefoot.util.Tuple;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 /** 
- * 2016Äê3ÔÂ11ÈÕ 
+ * 2016å¹´3æœˆ11æ—¥ 
  * Common.java 
  * author:ZhangYu
  */
@@ -126,25 +126,25 @@ public class Common {
 			
 			max_seg=(Common.end_utc-Common.start_utc)/Common.period;//96
 			
-			//gps_updater = new GPSUpdater(100, "gps_final" + Date_Suffix);
-			//unkown_gps_updater = new GPSUpdater(100, UnKnownSampleTable);
-			//real_traffic_updater = new RealTrafficUpdater();
+			gps_updater = new GPSUpdater(100, "gps_final" + Date_Suffix);
+			unkown_gps_updater = new GPSUpdater(100, UnKnownSampleTable);
+			real_traffic_updater = new RealTrafficUpdater();
 			history_traffic_updater = new HistoryTrafficUpdater();
 			
 		}
 		catch (Exception e) {
 			e.printStackTrace();
 		}
-		//taxi = new TaxiInfo[max_suid + 1];
+		taxi = new TaxiInfo[max_suid + 1];
 		//create thread
-		/*int size = Runtime.getRuntime().availableProcessors();
+		int size = Runtime.getRuntime().availableProcessors();
 		Common.logger.debug("pool size: " + size);
 		thread_number = size;
 		thread_pool = new ProcessThread[thread_number];
 		for(int i=0; i< thread_number; i++){
 			thread_pool[i] = new ProcessThread();
 			thread_pool[i].start();
-		}*/
+		}
 		
 	}
 	
@@ -206,7 +206,7 @@ public class Common {
 	}
 	
 
-	//´Ómerged_tableÖÐÉ¸Ñ¡³ö·ûºÏÎ»ÖÃ·¶Î§µÄµã,´æÈëmatching_table
+	//ä»Žmerged_tableä¸­ç­›é€‰å‡ºç¬¦åˆä½ç½®èŒƒå›´çš„ç‚¹,å­˜å…¥matching_table
 	public static void filter_samples(String database, String merged_table, String matching_table, long start_utc, long end_utc, long min_x, long max_x, long min_y, long max_y){
 		
 		Connection con = null;
