@@ -24,15 +24,40 @@ public class RealTravelTime {
 	 * @throws InterruptedException 
 	 */
 	public static void main(String[] args) throws SQLException, InterruptedException {
+		Connection con = null;
+    	Statement stmt = null;
+		ResultSet rs = null;
 		
 		Common.logger.debug("start!");
-		SimpleDateFormat tempDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		SimpleDateFormat tempDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");	
+		//Common.Date_Suffix = (new SimpleDateFormat("_yyyy_MM_dd")).format(new java.util.Date());
+		Common.Date_Suffix ="_2010_04_06";
 		
-		Common.Date_Suffix = (new SimpleDateFormat("_yyyy_MM_dd")).format(new java.util.Date());
+		try{
+			con = Common.getConnection();
+			if (con == null) {
+				Common.logger.error("Failed to make connection!");
+				return;
+			}
+			stmt = con.createStatement();
+			String sql = "select min(utc),max(utc) from " + Common.ValidSampleTable + ";";
+			rs = stmt.executeQuery(sql);
+			if(rs.next()){
+				Common.start_utc = rs.getLong(1);
+				Common.end_utc = rs.getLong(2);
+			}
+			
+			Common.logger.debug("start utc: " + Common.start_utc + "; end utc: " + Common.end_utc);
+		}
+		catch (SQLException e) {
+		    e.printStackTrace();
+		    con.rollback();
+		}
+		
 		Common.init(40000);
-		
 		//clear previous travel table 
-		//Common.clear_travel_table("_2016_07_17");
+		//Common.clear_travel_table("_2016_08_19");
+		
 
     	String start_time = tempDate.format(new java.util.Date());
     	Common.logger.debug("-----Real travel time process start:	"+start_time+"-------!");
@@ -43,18 +68,10 @@ public class RealTravelTime {
 
     	Common.logger.debug("-----start simulate gps point:	-------!");
     	
-    	Connection con = null;
-    	Statement stmt = null;
-		ResultSet rs = null;
-		con = Common.getConnection();
-		if (con == null) {
-			Common.logger.error("Failed to make connection!");
-			return;
-		}
 		int counter = Common.emission_step * Common.emission_multiple;//to control generate rate
 		try {
-			stmt = con.createStatement();
-			String sql = "select * from " + Common.ValidSampleTable + ";"; //+ " limit 5000;";
+					
+			String sql = "select * from " + Common.ValidSampleTable + " order by utc;"; //+ " limit 5000;";
 			//String sql = "select * from " + Common.SingleSampleTable + " limit 2000";
 			Common.logger.debug(sql);
     		rs = stmt.executeQuery(sql);
@@ -75,7 +92,6 @@ public class RealTravelTime {
     				//Common.logger.debug("Date: " + gps.utc);
     				Common.logger.debug("time: " + counter);
 				}
-    			
     			//utc of gps is in the time range, process the point
     			Sample gps = new Sample(rs.getLong("suid"), rs.getLong("utc"), rs.getLong("lat"), 
     		    		rs.getLong("lon"), (int)rs.getLong("head"), rs.getLong("speed"), rs.getLong("distance"));
@@ -88,6 +104,13 @@ public class RealTravelTime {
     			}
     			Common.taxi[suid].add_gps(gps);
     			
+    		}
+    		//wait for all gps point processed
+    		Thread.sleep(100 * 1000);
+    		
+    		//flush all traffic to simulate a new day
+    		for(int i=0;i<Common.roadlist.length;i++){
+    		    Common.roadlist[i].flush();
     		}
 		}
 		catch (SQLException e) {

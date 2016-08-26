@@ -105,7 +105,7 @@ public class TestMapMatching {
 					sample.utc.getTime()/1000, new Point(sample.lon, sample.lat));
 			Set<MatcherCandidate> vector = Common.matcher.execute(state.vector(), state.sample(),
 		    		matcher_sample);
-			state.update2(vector, matcher_sample);
+			//state.update2(vector, matcher_sample);
 			pre_sample = sample;
 		}
 		List<MatcherCandidate> sequence = state.sequence();

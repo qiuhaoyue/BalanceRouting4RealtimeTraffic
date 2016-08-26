@@ -44,7 +44,7 @@ public class RealTrafficUpdater {
 				stmt.executeUpdate(sql);
 				//create slice table
 				sql = "CREATE TABLE " + road_slice_table + "(gid integer, base_gid integer, length integer,"
-						+ " time double precision, average_speed double precision);";
+						+ " class_id integer, time double precision, average_speed double precision, is_sensed boolean);";
 				Common.logger.debug(sql);
 				stmt.executeUpdate(sql);
 				
@@ -71,11 +71,15 @@ public class RealTrafficUpdater {
 		try{
 			//insert road traffic
 			String sql = "Insert into " + Common.real_road_slice_table + seq + Common.Date_Suffix
-					+ "(gid, base_gid, length, time, average_speed) values \n";
+					+ "(gid, base_gid, length, class_id, time, average_speed, is_sensed) values \n";
 			AllocationRoadsegment road = Common.roadlist[gid];
-			sql += "(" + road.gid + ", " + road.base_gid + ", " + road.length + ", " + road.time + ", " + road.avg_speed + ");";
+			sql += "(" + road.gid + ", " + road.base_gid + ", " + road.length + ", " + road.class_id + ", " 
+			+ road.time + ", " + road.avg_speed + ", true);";
 			//Common.logger.debug(sql);
 			stmt.executeUpdate(sql);
+			
+			//update history traffic
+			Common.history_traffic_updater.update(gid, seq, road.avg_speed);
 			
 			//insert turning traffic
 			HashMap<Integer, Double> turing_time = road.get_all_turning_time();
@@ -87,6 +91,35 @@ public class RealTrafficUpdater {
 				stmt.addBatch(sql);
 			}
 			stmt.executeBatch();
+		}
+		catch (SQLException e) {
+		    e.printStackTrace();
+		    con.rollback();
+		    return false;
+		}
+		finally{
+			con.commit();
+		}
+		return true;
+	}
+	
+	public boolean update_road(int gid, int seq, double speed) throws SQLException{
+		try{
+			if(speed <= 0){
+				return false;
+			}
+			//insert road traffic
+			String sql = "Insert into " + Common.real_road_slice_table + seq + Common.Date_Suffix
+					+ "(gid, base_gid, length, class_id, time, average_speed, is_sensed) values \n";
+			AllocationRoadsegment road = Common.roadlist[gid];
+			sql += "(" + road.gid + ", " + road.base_gid + ", " + road.length + ", " + road.class_id 
+					+ ", " + road.length/speed + ", " + speed + ", false);";
+			//Common.logger.debug(sql);
+			stmt.executeUpdate(sql);
+			
+			//update history traffic
+			Common.history_traffic_updater.update(gid, seq, speed);
+			
 		}
 		catch (SQLException e) {
 		    e.printStackTrace();

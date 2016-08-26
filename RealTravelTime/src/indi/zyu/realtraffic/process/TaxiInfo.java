@@ -5,17 +5,12 @@ import indi.zyu.realtraffic.gps.Sample;
 import indi.zyu.realtraffic.road.AllocationRoadsegment;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
 import java.util.Set;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import com.bmwcarit.barefoot.markov.KState;
 import com.bmwcarit.barefoot.matcher.MatcherCandidate;
 import com.bmwcarit.barefoot.matcher.MatcherSample;
 import com.bmwcarit.barefoot.matcher.MatcherTransition;
-import com.bmwcarit.barefoot.roadmap.Route;
 import com.esri.core.geometry.Point;
 
 /** 
@@ -47,7 +42,7 @@ public class TaxiInfo {
 	
 	
 	public TaxiInfo(){
-		taxi_queue = new ArrayList();
+		taxi_queue = new ArrayList<Sample>();
 		state = new KState<MatcherCandidate, MatcherTransition, 
 				MatcherSample>(Common.match_windows_size, -1);
 		//pre_gid = -1;
@@ -91,26 +86,20 @@ public class TaxiInfo {
 				continue;
 			}
 					
-			//check whether to split seq
-			//1.change road
+			//change road
 			if(pre_sample.gid != sample.gid){
 				//calculate turning time
 				estimite_turning(sample);
-				//split();
 			}
-			//2. long stop
-			//else if(status == 1 && !taxi_queue.isEmpty()){
-				//split();
-			//}
-			//do not split, just estimite traffic by single point	
+			//just estimite traffic by single point	
 			else{
 				estimite_road(sample);
 			}
-			//taxi_queue.add(sample);
 			pre_sample = sample;
 		}
 		
 	}
+	
 	//add gps to queue
 	public void add_gps(Sample sample){
 		synchronized(taxi_queue){
@@ -171,9 +160,9 @@ public class TaxiInfo {
 		    if(estimate == null || estimate.point() == null){
 		    	//Common.logger.debug("match fail!: " + sample.toString());
 		    	//store unmatched gps
-				ArrayList list = new ArrayList();
+				ArrayList<Sample> list = new ArrayList<Sample>();
 				list.add(sample);
-				if(Common.unkown_gps_updater.addGPS(new ArrayList(list))){
+				if(Common.unkown_gps_updater.addGPS(new ArrayList<Sample>(list))){
 					//Common.logger.debug("insert unknown gps successfully");
 				}
 				else{
@@ -203,25 +192,6 @@ public class TaxiInfo {
 		return true;
 	}
 	
-	private void split(){
-		if(taxi_queue.size() >= 3){
-			//Common.fixedThreadPool.execute(new ProcessThread(taxi_queue.get(0).suid, taxi_queue, state));
-		}
-		
-		taxi_queue.clear();
-		status = 0;
-		/*int remain_num = this.remain_vector_size;
-		if(state.vector().size() > this.max_vector_size){
-			Set<MatcherCandidate> c = new Set<MatcherCandidate>();
-			Object[] array = state.vector().toArray();
-			for(int i = array.length -1 ; remain_num>=0 ;i--,remain_num--){
-				c.add((MatcherCandidate)array[i]);
-			}
-			state.vector().retainAll(c);
-		}*/
-		//state.vector().clear();
-		Common.logger.debug("start thread!");
-	}
 	//sample and pre_sample on same road, estimite traffic
 	private void estimite_road(Sample sample){
 		double offset = Math.abs(sample.offset - pre_sample.offset);
@@ -240,14 +210,14 @@ public class TaxiInfo {
 			//consider it traffic jam
 			if(road.avg_speed < jam_speed){
 				double slowdown_speed = Common.roadlist[gid].avg_speed * 0.9;
-				road.update_avg_speed(restrict_speed(slowdown_speed, road.max_speed), sample);
+				road.update_speed_sample(restrict_speed(slowdown_speed, road.max_speed), sample);
 			}
 			//consider it error
 			return;
 		}
 		double speed = restrict_speed(offset * road.length / interval, road.max_speed);
 		double smooth_speed = road.avg_speed * Common.smooth_alpha + speed * (1- Common.smooth_alpha);
-		road.update_avg_speed(restrict_speed(smooth_speed, road.max_speed), sample);
+		road.update_speed_sample(restrict_speed(smooth_speed, road.max_speed), sample);
 		
 		//Common.logger.debug("estimate real traffic: " +  gid + " " + smooth_speed);
 	}

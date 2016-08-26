@@ -5,14 +5,13 @@ import indi.zyu.realtraffic.process.ProcessThread;
 import indi.zyu.realtraffic.process.TaxiInfo;
 import indi.zyu.realtraffic.road.AllocationRoadsegment;
 import indi.zyu.realtraffic.updater.GPSUpdater;
+import indi.zyu.realtraffic.updater.HistoryTrafficUpdater;
 import indi.zyu.realtraffic.updater.RealTrafficUpdater;
 
 import java.sql.*;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import com.bmwcarit.barefoot.matcher.Matcher;
 import com.bmwcarit.barefoot.road.PostGISReader;
@@ -34,14 +33,14 @@ import org.apache.logging.log4j.Logger;
 
 public class Common {
 	
-	//some config on database
+	//database config
 	static String JdbcUrl  = "jdbc:postgresql://localhost:5432/";
-	//static String JdbcUrl  = "jdbc:postgresql://ip:port/";
+	//static String JdbcUrl  = "jdbc:postgresql://166.111.68.99:11044/";
 	
-	//static String Host     = "secret";
+	//static String Host     = "166.111.68.99";
 	static String Host     = "localhost";
 	
-	//static int Port        = secret;
+	//static int Port        = 11044;
 	static int Port        = 5432;
 	
 	static String UserName = "secret";
@@ -49,18 +48,13 @@ public class Common {
 	static String DataBase = "secret";
 	
 	public static String OriginWayTable = "ways";
-	//static String OneWayTable    = "oneway_test";
-	//static String OriginSampleTable = "gps";
-	//static String ValidSampleTable  = "valid_gps_test2";
 	public static String ValidSampleTable  = "valid_gps_utc";
-	public static String SingleSampleTable  = "gps_5434";
 	static String FilterSampleTable = ValidSampleTable;
 	
-	//static String IntersectionTable = "oneway_intersection";
-	public static String traffic_slice_table ="travel_time_slice_";
-	public static String real_road_slice_table ="real_road_time_slice_";
+	//traffic table
+	public static String real_road_slice_table = "real_road_time_slice_";
 	public static String real_turning_slice_table ="real_turning_time_slice_";
-	public static String traffic_total_table ="travel_time_total_";
+	public static String history_road_slice_table = "history_road_time_slice_";
 	
 	static String UnKnownSampleTable = "match_fail_gps";
 	
@@ -71,47 +65,50 @@ public class Common {
 	public static double min_speed = 0.1;
 	static double min_interval = 20;
 	static double speed_alpha = 0.9;
+	public static double history_update_alpha = 0.8;// to update history traffic
 	public static double init_turning_time = 4;
 	public static int delay_update_thresold = 1;//to get delay updated traffic
+	public static int max_infer_traffic_interval = 2;// to infer the speed if no traffic sensed in the interval
 	public static double smooth_alpha = 0.9;//to smooth traffic
 	
-	public static int match_windows_size = 4;
+	public static int match_windows_size = 6;
 	
 	public static long period = 300L;
-	public static long end_utc=1270569600L;//1231218000-1231221600
-	public static long start_utc=1270483200L;
+	
+	public static long start_utc;
+	public static long end_utc;
+	
 	public static long max_seg;
 	
 	//to control speed of data emission
 	public static int emission_step = 1;//send points within next x seconds every time
-	public static int emission_multiple = 1;//times of speed of real time.
+	public static int emission_multiple = 2;//times of speed of real time.
 	
 	//taxi info
 	public static TaxiInfo taxi[] = null;//taxi sample
 	
+	//roadmap
 	public static AllocationRoadsegment[] roadlist=null;
+	
+	//default speed
+	public static  double[][] default_traffic = null;
+	//average speed of roads in same class
+	public static  double[][] default_class_traffic = null;
 	
 	public static Logger logger = LogManager.getLogger(Common.class.getName());
 	
 	public static RoadMap map = null;
 	public static Matcher matcher;
 	
-	static GPSUpdater gps_updater;
+	//static GPSUpdater gps_updater;
 	public static GPSUpdater unkown_gps_updater;//points that match failed
 	public static RealTrafficUpdater real_traffic_updater;
+	public static HistoryTrafficUpdater history_traffic_updater;
 	
 	//config Mapping of road class identifiers to priority factor and default maximum speed
 	public static Map<Short, Tuple<Double, Integer>> road_config;
 	
 	//for debug calculate time
-	public static float match_time = 0;
-	public static float estimate_road_time = 0;
-	public static int estimate_road_counter = 0;
-	public static float estimate_turning_time = 0;
-	public static int estimate_turning_counter = 0;
-	public static float preprocess_time = 0;
-	public static AtomicInteger thread_counter;//current thread number, to control speed of data emission
-	public static int max_thread_number = 30; //max number of thread including thread in queue	
 	public static int thread_number = 4;
 	public static ProcessThread[] thread_pool;
 	
@@ -129,25 +126,25 @@ public class Common {
 			
 			max_seg=(Common.end_utc-Common.start_utc)/Common.period;//96
 			
-			gps_updater = new GPSUpdater(100, "gps_final" + Date_Suffix);
-			unkown_gps_updater = new GPSUpdater(100, UnKnownSampleTable);
-			real_traffic_updater = new RealTrafficUpdater();
-			//thread_counter = new AtomicInteger(0);
+			//gps_updater = new GPSUpdater(100, "gps_final" + Date_Suffix);
+			//unkown_gps_updater = new GPSUpdater(100, UnKnownSampleTable);
+			//real_traffic_updater = new RealTrafficUpdater();
+			history_traffic_updater = new HistoryTrafficUpdater();
 			
 		}
 		catch (Exception e) {
 			e.printStackTrace();
 		}
-		taxi = new TaxiInfo[max_suid + 1];
+		//taxi = new TaxiInfo[max_suid + 1];
 		//create thread
-		int size = Runtime.getRuntime().availableProcessors();
+		/*int size = Runtime.getRuntime().availableProcessors();
 		Common.logger.debug("pool size: " + size);
 		thread_number = size;
 		thread_pool = new ProcessThread[thread_number];
 		for(int i=0; i< thread_number; i++){
 			thread_pool[i] = new ProcessThread();
 			thread_pool[i].start();
-		}
+		}*/
 		
 	}
 	
@@ -158,7 +155,7 @@ public class Common {
 		double priority[] = {1.30,1.0,1.10,1.04,1.12,1.08,1.15,1.10,1.20,1.12,1.25,1.30,
 				1.50,1.75,1.30,1.30,1.30,1.30,1.30,1.30,1.30,1.30,1.30,1.30,1.30,1.30,1.30,1.30};
 		for(int i=0; i<28; i++){
-			road_config.put(class_id[i], new Tuple(priority[i], Common.max_speed));
+			road_config.put(class_id[i], new Tuple<Double, Integer>(priority[i], (int)Common.max_speed));
 		}
 	}
 	
@@ -371,21 +368,86 @@ public class Common {
 		roadlist=new AllocationRoadsegment[(int)max_gid+1];
 		for(int i=0;i<roadlist.length;i++){
 		    roadlist[i]=new AllocationRoadsegment();
-		    roadlist[i].avg_speed = 10;
+		}
+		//read history traffic to memory as initial value
+		try {
+			init_default_traffic();
+			
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 		
 		roadmap = map.edges();
+		//read roadmap
 		while(roadmap.hasNext()){
 			Road road = roadmap.next();
-			long gid = road.id();
+			int gid = (int)road.id();
 			double maxspeed = road.maxspeed();
-			AllocationRoadsegment cur_road=new AllocationRoadsegment(gid,maxspeed, 10.0, 0);
+			AllocationRoadsegment cur_road=new AllocationRoadsegment(gid,maxspeed, 10.0, 0);	
 			cur_road.length = road.length();//meters
-			cur_road.time = cur_road.length/10;
+			
+			//set initial speed
+			double default_speed = default_traffic[gid][1];
+			//no direct default speed, use average speed of roads in same class_id
+			if(default_speed <=0){
+				default_speed = default_class_traffic[road.type()][1];
+			}
+			//if no default speed of roads in same class_id, set 10
+			cur_road.avg_speed = default_speed > 0 ? default_speed : 10;
+			
+			cur_road.time = cur_road.length / cur_road.avg_speed;
 			cur_road.base_gid = road.base().id();
 			cur_road.class_id = road.type();
 			roadlist[(int)gid] = cur_road;
 		}
+		
+	}
+	
+	//get history traffic as default value
+	public static void init_default_traffic() throws SQLException{
+		int length = Common.roadlist.length;
+		default_traffic = new double[length][(int)Common.max_seg + 1];
+		//28 classes of road ,max id is 305, set 400 here
+		default_class_traffic = new double [350][(int)Common.max_seg + 1];
+		//start read traffic from database
+		Connection con = Common.getConnection();
+		//con.setAutoCommit(false);
+		try{
+			Common.logger.debug("read default road speed...");
+			Statement stmt = con.createStatement();
+			//read by period
+			for(int i=1; i<=Common.max_seg; i++){
+				String traffic_table = Common.history_road_slice_table + i;
+				//read data
+				String sql = "select * from " + traffic_table + ";";
+				ResultSet rs = stmt.executeQuery(sql);
+				int[] class_id_counter = new int[350];
+				while(rs.next()){
+					int gid = rs.getInt("gid");
+					int class_id = rs.getInt("class_id");
+					class_id_counter[class_id]++;
+					//Common.logger.debug(gid);
+					double speed = rs.getDouble("average_speed");
+					default_traffic[gid][i] = speed;
+					default_class_traffic[class_id][i] += speed;
+				}
+				//get average speed of roads in same class
+				for(int j=0; j<class_id_counter.length; j++){
+					int counter = class_id_counter[j];
+					if(counter > 0){
+						default_class_traffic[j][i] /= counter;
+					}
+				}
+			}
+		}
+		catch (SQLException e) {
+			e.printStackTrace();
+			con.rollback();
+		}
+		finally{
+			con.commit();
+		}		
 	}
 	
 	//clear slice  table in certain date
@@ -394,14 +456,9 @@ public class Common {
 		try{
 			Statement stmt = con.createStatement();
 			for(int i=1; i<= Common.max_seg; i++){
-				//drop slice table
-				String slice_table = Common.traffic_slice_table + i + date;
-				String sql = "DROP TABLE IF EXISTS " + slice_table + ";";
-				Common.logger.debug(sql);
-				stmt.executeUpdate(sql);
 				//drop road and turning time table
 				String road_slice_table = Common.real_road_slice_table + i + date;
-				sql = "DROP TABLE IF EXISTS " + road_slice_table + ";";
+				String sql = "DROP TABLE IF EXISTS " + road_slice_table + ";";
 				Common.logger.debug(sql);
 				stmt.executeUpdate(sql);
 				

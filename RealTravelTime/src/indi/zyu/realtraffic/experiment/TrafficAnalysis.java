@@ -28,7 +28,7 @@ public class TrafficAnalysis {
 	private Statement stmt = null;
 	
 	//for real-time traffic data
-	public TrafficAnalysis(String Date_Suffix) throws SQLException{
+	public TrafficAnalysis(String Date_Suffix, int class_id) throws SQLException{
 		int length = Common.roadlist.length;
 		road_traffic = new double[length][(int)Common.max_seg + 1];
 		traffic_counter = new int[(int)Common.max_seg + 1];
@@ -48,6 +48,7 @@ public class TrafficAnalysis {
 		for(int i=1; i<=Common.max_seg; i++){
 			try{
 				String traffic_table = Common.real_road_slice_table + i + Date_Suffix;
+				//String traffic_table = Common.history_road_slice_table + i + Date_Suffix;
 				String sql = "select count(*) from pg_class where relname = '" + traffic_table + "';";
 				ResultSet rs = stmt.executeQuery(sql);
 				if(rs.next()){
@@ -58,7 +59,13 @@ public class TrafficAnalysis {
 					}
 				}
 				//read data
-				sql = "select * from " + traffic_table + ";";
+				if(class_id == -1){
+					sql = "select * from " + traffic_table + " ;";
+				}
+				else{
+					sql = "select * from " + traffic_table + " where class_id=" + class_id + ";";
+				}
+				
 				rs = stmt.executeQuery(sql);
 				while(rs.next()){
 					int gid = rs.getInt("gid");
