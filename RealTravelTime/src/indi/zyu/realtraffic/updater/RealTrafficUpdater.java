@@ -11,7 +11,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 /** 
- * 2016Äê5ÔÂ27ÈÕ 
+ * 2016å¹´5æœˆ27æ—¥ 
  * RealTrafficUpdater.java 
  * author:ZhangYu
  */
@@ -103,6 +103,7 @@ public class RealTrafficUpdater {
 		return true;
 	}
 	
+	//update inferred traffic
 	public boolean update_road(int gid, int seq, double speed) throws SQLException{
 		try{
 			if(speed <= 0){
