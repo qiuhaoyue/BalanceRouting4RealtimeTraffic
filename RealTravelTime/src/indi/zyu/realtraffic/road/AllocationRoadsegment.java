@@ -1,5 +1,5 @@
 /** 
- * 2016Äê3ÔÂ12ÈÕ 
+ * 2016å¹´3æœˆ12æ—¥ 
  * AllocationRoadsegment.java 
  * author:ZhangYu
  */
@@ -260,21 +260,49 @@ public class AllocationRoadsegment extends RoadSegment {
 			return;
 		}
 		double correction_factor = this.avg_speed / pre_speed;
+		double default_speed = 0.0;
+		double new_speed = 0.0;
+		double class_speed = 0.0;
+		double max_speed_limit = 0.0;
+		double min_speed_limit = 0.0;
 		for(int i=pre_seq+1; i<= pre_seq + Common.max_infer_traffic_interval; i++){
-			double default_speed = Common.default_traffic[(int)gid][i];
+			default_speed = Common.default_traffic[(int)gid][i];
 			
 			if(default_speed <= 0){
 				continue;
 			}
 			if(i < cur_seq){
 				//correct history speed and insert it
-				Common.real_traffic_updater.update_road((int)gid, i, default_speed * correction_factor);	
+				new_speed = default_speed * correction_factor;
+				class_speed = Common.default_class_traffic[this.class_id][i];
+				//avoid saltation
+				max_speed_limit = this.avg_speed + (i- pre_seq) * class_speed;
+				min_speed_limit = this.avg_speed - (i- pre_seq) * class_speed;
+				
+				if(max_speed_limit > default_speed + class_speed){
+					max_speed_limit = default_speed + class_speed;
+				}
+				if(min_speed_limit < default_speed - class_speed){
+					min_speed_limit = default_speed - class_speed;
+				}			
+				
+				if(max_speed_limit <= min_speed_limit){
+					continue;
+				}
+				if(new_speed > max_speed_limit){
+					new_speed = max_speed_limit;
+				}
+				else if(new_speed < min_speed_limit){
+					new_speed = min_speed_limit;
+				}
+				
+				Common.real_traffic_updater.update_road((int)gid, i, new_speed);	
 			}
 			
 			//correct current speed
 			else if(i == cur_seq){
-				double new_speed = this.avg_speed * Common.smooth_alpha 
-						+ default_speed * (1 - Common.smooth_alpha);
+				new_speed = this.avg_speed * Common.smooth_alpha 
+					+ default_speed * (1 - Common.smooth_alpha);
 				
 				if(new_speed > max_speed){
 					new_speed = this.max_speed;
