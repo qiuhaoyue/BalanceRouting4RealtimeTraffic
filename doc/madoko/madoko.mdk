@@ -387,7 +387,7 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
 ![infer_week_0207(2)]
 
 [infer_week_0207(2)]: images/infer_week_0207(2).png "infer_week_0207(2)" { width:auto; max-width:90% }
-探测出的路况与根据历史路况推测出的路况的比较。
+探测出的路况与根据历史路况推测出的路况的比较。增加1119926条路况，增加了60%左右的路况
 
 
 [在线的HMMM算法]: https://github.com/bmwcarit/barefoot
