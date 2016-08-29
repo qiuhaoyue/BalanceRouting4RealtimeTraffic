@@ -147,6 +147,37 @@ Doc class     : [10pt]article
  
 ## 3.4 路况推测： {-}
 
+          pre_seq, cur_seq为道路探测到路况的2个阶段。
+          pre_speed = 历史路况中pre_seq所对应的该道路的速度;
+          road_speed = 探测到的该道路在pre_seq的道路速度
+          修正因子 = road_speed / pre_speed;
+          
+          for(int i=pre_seq+1; i<= pre_seq + 推测跨度; i++){
+            default_speed = 历史路况中当前道路在该阶段的速度;
+            class_speed = 同类道路在该阶段的平均速度;
+            
+            //为防止路况突变，对路况做限制
+            //横向，已探测到的路况作为基准，class_speed作为一个阶段内最大的道路变化值
+            max_speed_limit = road_speed + (i- pre_seq) * class_speed;
+				    min_speed_limit = road_speed - (i- pre_seq) * class_speed;
+            //纵向，已历史路况的路况作为基准
+            if(max_speed_limit > default_speed + class_speed){
+					      max_speed_limit = default_speed + class_speed;
+				    }
+				    if(min_speed_limit < default_speed - class_speed){
+					      min_speed_limit = default_speed - class_speed;
+				    }
+            
+            infer_speed = 修正因子 * default_speed in [min_speed_limit, max_speed_limit];
+            
+            if(i < cur_seq){
+              插入道路在该阶段推测出的路况infer_speed;
+            }
+            else{
+              将infer_speed看作探测到的路况对路段路况进行平滑操作。
+              break;
+            }
+          }
 
 # 4. 相关工作调研 {-}
 
