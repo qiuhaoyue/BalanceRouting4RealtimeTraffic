@@ -384,10 +384,11 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
 没有探测到的路况，则直接将推测的路况插入，否则对探测到的路况进行修正。详细见道路补充算法。
 
 补充的路况目的是增加路况数量，平均速度应尽量与探测到的路况接近。
-![infer_week_0207(2)]
+![infer_week_0207(3)]
 
-[infer_week_0207(2)]: images/infer_week_0207(2).png "infer_week_0207(2)" { width:auto; max-width:90% }
-探测出的路况与根据历史路况推测出的路况的比较。增加1119926条路况，增加了60%左右的路况
+[infer_week_0207(3)]: images/infer_week_0207(3).png "infer_week_0207(3)" { width:auto; max-width:90% }
+
+探测出的路况与根据历史路况推测出的路况的比较。增加1119926条路况，增加了70%左右的路况
 
 
 [在线的HMMM算法]: https://github.com/bmwcarit/barefoot
