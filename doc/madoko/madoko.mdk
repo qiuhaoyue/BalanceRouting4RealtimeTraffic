@@ -103,27 +103,13 @@ Doc class     : [10pt]article
     
 
 # 3. 核心算法 {-}
-## 3.1 轨迹长暂停标记： {-}
 
-![label_stop]
-
-[label_stop]: images/label_stop.jpg "label_stop" { width:auto; max-width:90% }
-
-
-设定一个距离阈值，时间阈值。
-
-      for point in GPS sequence:
-        以当前点为基准，选出在该点之前且距离在阈值内的所有点作为集合A；
-        for point in A:
-          求出集合A中的点与当前点的时间间隔；
-        将时间间隔大于阈值的点标记为长暂停；
-        
-## 3.2 道路匹配： {-}
+## 3.1 道路匹配： {-}
 算法参考论文：“Online map-matching based on Hidden Markov model for real-time traffic sensing applications”
 
-  实现：[在线的HMMM算法]，在这基础上做了进一步修改。
+  实现：[在线的HMMM算法]，在这基础上可能会进一步修改。
  
-## 3.3 路况计算： {-}
+## 3.2 路况计算： {-}
 
 
 ![update_traffic]
@@ -131,16 +117,19 @@ Doc class     : [10pt]article
 [update_traffic]: images/update_traffic.jpg "update_traffic" { width:auto; max-width:90% }
 
 
-    如图所示，对于未切换道路的点，直接计算当前道路的路况即可，道路改变的点需要对路由上的每一条道路的路况进行计算
+    如图所示，对于未切换道路的点，直接计算当前道路的路况即可，道路改变的点需要对路由上的每一条道路的路况进行计算.
+    超过95%的情况前后2个轨迹点不在同一条道路上。
     
-    1.当前点与前一个点在同一条道路上；
-		if offset = 0 && 道路速度 < 交通拥塞的速度阈值:
-		  道路速度 = 道路速度 * 0.9；
-		探测速度 = offset * 道路长度 / 间隔；
-		平滑速度 = 道路速度 * 0.9 + 探测速度 * 0.1；
-			
-  
-    2.道路改变；
+    路况探测完成后向道路提交探测速度以及路况的时间信息，再进行进一步的平滑
+    
+    1.当前点与前一个点在同一条道路上:
+    
+		  if offset = 0 && 道路速度 < 交通拥塞的速度阈值:
+		    探测速度=0(探测速度为0时道路的速度 *= 0.9，以指数速度递减)
+          else:
+		    探测速度 = offset * 道路长度 / 间隔；
+
+    2.道路改变:
 
         获取当前点与上一个点的路由；
         for each road in route://遍历出租车从上一个点到当前点经过的所有道路
@@ -153,10 +142,25 @@ Doc class     : [10pt]article
 		  计算实际花费的时间 real_time = interval(当前点与上一个点的时间间隔) * percentage；
 		  按比例分配行驶时间与转向时间；例如 转向时间 = real_time * 转向时间/(转向时间 + 行驶时间)；
     
+  3.平滑:
   
+  
+  平滑因子 = 0.9 - (sensed_seq - cur_seq) \* 0.1;
+  
+  sensed_seq为探测到的路况的阶段数，cur_seq为道路当前路况所处的阶段。
+  
+  路况 = 平滑因子 \* 当前路况 + (1 - 平滑因子) \* 探测路况
 
  
-## 3.4 路况推测： {-}
+## 3.3 路况推测： {-}
+
+当道路的2个阶段(seq1, seq2)间出现路况缺失时通过道路在seq1时的速度，历史路况在seq1，seq1 + i 时的速度，
+以及seq1 + i 时历史路况中同类道路的平均速度进行路况推测补充（i<=2）。补充的路况的平均速度应尽量接近
+探测速度。
+
+为避免推测出的速度与真实速度差距过大，对推测的速度进行横向(以上一个阶段的速度作为基准)，
+纵向（以历史路况中当前道路当前阶段的速度作为基准）的速度限制，将同类道路的
+平均速度作为一个阶段(5分钟)内速度变化的最大幅度。
 
           pre_seq, cur_seq为道路探测到路况的2个阶段。
           pre_speed = 历史路况中pre_seq所对应的该道路的速度;
@@ -384,11 +388,10 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
 没有探测到的路况，则直接将推测的路况插入，否则对探测到的路况进行修正。详细见道路补充算法。
 
 补充的路况目的是增加路况数量，平均速度应尽量与探测到的路况接近。
-![infer_week_0207(3)]
+![infer_week_0207(2)]
 
-[infer_week_0207(3)]: images/infer_week_0207(3).png "infer_week_0207(3)" { width:auto; max-width:90% }
-
-探测出的路况与根据历史路况推测出的路况的比较。增加1119926条路况，增加了70%左右的路况
+[infer_week_0207(2)]: images/infer_week_0207(2).png "infer_week_0207(2)" { width:auto; max-width:90% }
+探测出的路况与根据历史路况推测出的路况的比较。
 
 
 [在线的HMMM算法]: https://github.com/bmwcarit/barefoot
