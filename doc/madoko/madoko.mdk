@@ -145,7 +145,7 @@ Doc class     : [10pt]article
   3.平滑:
   
   
-  平滑因子 = 0.9 - (sensed_seq - cur_seq) \* 0.1;
+  平滑因子 = 0.9 - (sensed_seq - cur_seq) \* 0.05;
   
   (sensed_seq为探测到的路况的阶段数，cur_seq为道路当前路况所处的阶段。道路上一阶段的路况与当前阶段
   间隔越大，上一阶段路况对当前路况的影响越小，最小值为0)
