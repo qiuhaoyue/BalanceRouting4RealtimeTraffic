@@ -32,9 +32,8 @@ Doc class     : [10pt]article
 
 2. 模拟数据发送，接收GPS点之后随机将该点对应的出租车加入某一线程的处理列表中，GPS点放入出租车队列中，等待处理
 3. 处理线程以轮询方式读取列表中的出租车suid，一次处理出租车队列中的所有数据。
-4. GPS点经过预处理，道路匹配，之后根据与上一个点的位置关系探测路况，将路况提交
-5. 路况提交后根据GPS点时间信息确认路况所属的时间阶段，若该阶段大于道路现有的路况阶段数，则将当前路况写入数据库，并更新道路路况与阶段数，同时将路况更新至历史路况数据库。
-若路况已过世，允许延迟一个阶段数的路况更新，但不会写入数据库。
+4. GPS点经过预处理，道路匹配，之后根据与上一个点的位置关系探测路况，将路况提交路况提交后根据GPS点时间信息确认路况所属的时间阶段，若该阶段大于道路现有的路况阶段数，则将当前路况写入数据库，并更新道路路况与阶段数，同时将路况更新至历史路况数据库。
+若路况已过时，允许延迟一个阶段数的路况更新，但不会写入数据库。
 6. 当一条道路的前后2个阶段的差值小于某一阈值时，进行路况的自动补充。
 
 
@@ -65,6 +64,9 @@ Doc class     : [10pt]article
   
   输出：可用的GPS的点
   
+
+ * { color: #FF0000 } 向勇的注：在林秋慧的计算中有扇子型的数据错误，这对你的计算也应该会有影响。这是一种两点间的速度远大于可能的车速时，出现的错误。
+
 ## 2.5 OHMMM道路匹配出租车队列： {-}
 在线的HMMM匹配，有一定延迟，目前设定的匹配窗口最大值为5（若1分钟一个点，则延迟最大为5分钟）。输出的GPS点带有
   Gid，Edge_offset,route三个字段，分别表示将这个点匹配的道路id，偏移以及这个点的前一个点到当前sample通过的路径。
@@ -79,7 +81,8 @@ Doc class     : [10pt]article
 ## 2.6 实时路况计算模块： {-}
 根据新获取的GPS点计算路况。如果与上一个GPS点在同一道路上则直接更新该道路路况，如果上一个点不在
 同一道路上，则需要先计算与上一个点之间的路由，并更新路由上所有道路的路况，具体见3.4节的实时路况计算算法
-  
+
+
   输入：单个GPS点。
   
   输出：更新内存中的实时路况。
@@ -98,7 +101,7 @@ Doc class     : [10pt]article
   
 ## 2.8 GPS备份： {-}
 为实验需求，对处理完的GPS进行备份，未匹配成功的GPS同样进行备份，供后续的新道路挖掘。
-    
+
 输入：处理完毕的GPS流(suid, utc, lat, lon, head, ostdesc, stop, Gid, Edge_offset, route, interval, pre_gid, ore_offset)
     
 输出：写入GPS数据库。
@@ -122,6 +125,9 @@ Doc class     : [10pt]article
     如图所示，对于未切换道路的点，直接计算当前道路的路况即可，道路改变的点需要对路由上的每一条道路的路况进行计算.
     超过95%的情况前后2个轨迹点不在同一条道路上。
     
+ * { color: #FF0000 } 向勇的注：对于路况计算的一种可能改进思路是，引入路口转向延时。这对后续的路况计算结果的可能利用是有用的。目前的这个计算方法得到的速度应该会真实情况低。
+
+
     路况探测完成后向道路提交探测速度以及路况的时间信息，再进行进一步的平滑
     
     1.当前点与前一个点在同一条道路上:
@@ -154,7 +160,9 @@ Doc class     : [10pt]article
   
   路况 = 平滑因子 \* 当前路况 + (1 - 平滑因子) \* 探测路况
 
+ * { color: #FF0000 } 向勇的注：平滑参数的选择有分析实验吗？我好象没有印象了。
  
+
 ## 3.3 路况推测： {-}
 
 当道路的2个阶段(seq1, seq2)间出现路况缺失时通过道路在seq1时的速度，历史路况在seq1，seq1 + i 时的速度，
@@ -254,6 +262,8 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
   3. 对于无法正确匹配但本身没有异常的点单独存一份，用作以后挖掘新的道路。例子：(12788,2010-04-06 00:00:24)	lat:39.91935,lon:116.53758,head:357,speed:22.12,distance:0,min_matching_distance:-1.0, (12788,2010-04-06 00:01:24)	lat:39.93131,lon:116.53687,head:357,speed:22.12,distance:0,min_matching_distance:-1.0, (12788,2010-04-06 00:02:24)	lat:39.9396,lon:116.53815,head:72,speed:15.43,distance:0,min_matching_distance:-1.0, (12788,2010-04-06 00:03:19)
 
 
+ * { color: #FF0000 } 向勇的注：如果你的速度描述模型中已有转向延时，需要有一节来描述速度表示模型。
+
 # 6. 实验日志 {-}
 
 ## 6.1 处理速度 {-}
@@ -267,6 +277,8 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
 [traffic_number_total]: images/traffic_number_total.png "traffic_number_total" { width:auto; max-width:90% }
 
 由于更改道路拆分标准后道路变少，4倍速度也基本能够处理，8倍速度时，在数据高峰期偏差明显。
+
+ * { color: #FF0000 } 向勇的注：需要解释，为什么不同的处理速度下，计算出的速度会有不同？
 
 探测到的道路平均速度为：
 
@@ -297,6 +309,8 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
 
 目前看，窗口大小设置为6或7比较合理（窗口增大，匹配平均延迟不变，但最大延迟会增加）
 
+ * { color: #FF0000 } 向勇的注：这一部分的分析不太通顺，我没有明白。需要好好修改。
+ 
 
 ## 6.3 窗口大小对探测到的道路速度的影响 {-}
 
@@ -336,6 +350,8 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
 <!-- end merge -->
 
 ## 6.4 双向道路的拆分 {-}
+
+ * { color: #FF0000 } 向勇的注：这一节的内容放在这里不太合适。
 
 更新了osm2pgrouting的版本到2.1，新版本对于oneway的处理较好，导入的表中保留有one_way字段（0-未知,1-单向,2-双向,-1-单向但是几何上方向是相反的）
 
@@ -395,6 +411,8 @@ Probe Vehicles (2) Scaling the Real-time Traffic Sensing with GPS Equipped Probe
 
 [infer_week_0207(2)]: images/infer_week_0207(2).png "infer_week_0207(2)" { width:auto; max-width:90% }
 探测出的路况与根据历史路况推测出的路况的比较。
+
+ * { color: #FF0000 } 向勇的注：总体感觉是，你的分析部分的文字还需要好好组织一下。目前版本还不通顺，描述也不是很准确。
 
 
 [在线的HMMM算法]: https://github.com/bmwcarit/barefoot
