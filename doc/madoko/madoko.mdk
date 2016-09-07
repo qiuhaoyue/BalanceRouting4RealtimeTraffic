@@ -16,12 +16,9 @@ Doc class     : [10pt]article
 
 # 1. 系统框架图 {-}
 
-
-
 ![new_framework]
 
 [new_framework]: images/new_framework.jpg "new_framework" { width:auto; max-width:90% }
-
 
 
 
