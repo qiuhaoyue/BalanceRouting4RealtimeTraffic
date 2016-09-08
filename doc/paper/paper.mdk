@@ -36,12 +36,10 @@ But sad or merry, I must leave it now. Farewell!
 
 根据数据流描述系统对GPS点的处理
 
-#在线地图匹配
-##OHMMM算法
-##地图匹配的窗口大小(5.3小节放这?)
 
 # 路况探测与补充
 ## 路况模型
+## OHMMM地图匹配算法
 ## 路况探测
 ## 缺失路况的补充
 
