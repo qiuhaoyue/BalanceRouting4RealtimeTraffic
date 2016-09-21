@@ -118,12 +118,14 @@ Doc class     : [10pt]article
 
 ![road_model]
 
+[road_model]: images/road_model.jpg "road_model" { width:auto; max-width:60% }
+
+
 道路速度包括道路上的直行速度(t~R1~)与驶向其它路口的转向延迟(t~R1,R3~,t~R1,R4~,t~R1,R2~，包括在道路转换设施
 中的行驶时间与交通信号带来的时间消耗)。
 
 例如从R1到R2的行驶时间 = t~R1~ + t~R1,R2~
 
-[road_model]: images/road_model.jpg "road_model" { width:auto; max-width:90% }
 
 
 
