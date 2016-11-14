@@ -401,7 +401,7 @@ primary, secondary, tertiary，与预期相符。
 [total_store_comparison]: images/total_store_comparison.png "total_store_comparison" { width:auto; max-width:90% }
 
 #路况精确度分析 {-}
-6:00~23:00，选取大于10分钟的轨迹，最大路由为20，总体速度过快，可能是异常点导致。
+6:00~23:00，选取大于10分钟的轨迹，共1088条轨迹（可能要放宽要求，有点少），最大路由为20，总体速度过快，可能是异常点导致。
 
 差错率大于2的认为是轨迹点匹配错误。去除异常点之后平均差错率0.45
 
