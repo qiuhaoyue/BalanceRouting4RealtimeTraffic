@@ -262,7 +262,22 @@ Doc class     : [10pt]article
 另外，在实验中，道路匹配窗口越大，遗留在窗口中的匹配点越多，输出的匹配成功的点越少，可用作比较的点少。
 所以不同窗口大小与离线匹配结果比较的数量不同，上述实验的结果随着窗口变大会有一定抖动。
 
+
+新图：去除了长度小于300的轨迹，减少因窗口变大导致输出数据变少带来的扰动。
+![map-matching_new]
+
+[map-matching_new]: images/map-matching_new.png "map-matching_new" { width:auto; max-width:90% }
+
+
+ OHMMM论文中对匹配精确度的实验
+![matching2]
+![matching1]
  
+ 
+
+[matching2]: images/matching2.jpg "matching2" { width:auto; max-width:90% }
+
+[matching1]: images/matching1.jpg "matching1" { width:auto; max-width:90% }
 
 ## 4.3 窗口大小对探测到的道路速度的影响 {-}
 
@@ -373,6 +388,51 @@ primary, secondary, tertiary，与预期相符。
 [infer_week_0207(2)]: images/infer_week_0207(2).png "infer_week_0207(2)" { width:auto; max-width:90% }
 
 [在线的HMMM算法]: https://github.com/bmwcarit/barefoot
+
+
+## 4.5 保存恢复测试 {-}
+在12：00进行保存，测试12：00之后重新计算，恢复后计算与正常路况的差别。
+
+![turning_store_comparison]
+![total_store_comparison]
+
+[turning_store_comparison]: images/turning_store_comparison.png "turning_store_comparison" { width:auto; max-width:90% }
+
+[total_store_comparison]: images/total_store_comparison.png "total_store_comparison" { width:auto; max-width:90% }
+
+#路况精确度分析 {-}
+6:00~23:00，选取大于10分钟的轨迹，最大路由为20，总体速度过快，可能是异常点导致。
+
+差错率大于2的认为是轨迹点匹配错误。去除异常点之后平均差错率0.45
+
+exp<real: 837
+
+exp>real: 114
+
+0%-10%: 65
+
+10%-20%: 72
+
+20%-30%: 120
+
+30%-40%: 146
+
+40%-50%: 162
+
+50%-60%: 121
+
+60%-70%: 108
+
+70%-80%: 68
+
+80%-90%: 45
+
+90%-100%: 21
+
+100%-200%: 15
+
+\>200%: 8
+
 
 # 5. 相关工作调研 {-}
 
