@@ -504,6 +504,37 @@ analyse_result - 80%-90%: 1
 
 analyse_result - 110%-120%: 1
 
+实验轨迹也以10分钟为最大间隔进行切割。
+重新计算路况（两天）。同时去除轨迹中的静止点（浮动车在未知的道路上行驶也会导致匹配后静止点的出现）
+
+total average error rate: 0.18598690240869703
+
+valid average error rate: 0.18513519274457263
+
+exp<real: 2518
+
+exp>real: 557
+
+0%-10%: 945
+
+10%-20%: 868
+
+20%-30%: 696
+
+30%-40%: 364
+
+40%-50%: 138
+
+50%-60%: 45
+
+60%-70%: 16
+
+70%-80%: 1 轨迹2 匹配错误
+
+80%-90%: 1 轨迹3 匹配？路由？
+
+280%-290%: 1  轨迹1 匹配错误（轨迹短，匹配错误率变高）
+
 # 5. 相关工作调研 {-}
 
 1. Real-time freeway traffic state estimation based on extended Kalman filter: a general approach
