@@ -12,13 +12,19 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+
+import org.postgresql.util.PSQLException;
 
 public class HistoryTrafficUpdater {
 	private Connection con = null;
 	private Statement stmt = null;
+	private ArrayList<String> updater_list = null;
+	private int max_update_num = 5000;
 	
 	public HistoryTrafficUpdater() throws SQLException{
 		con = Common.getConnection();
+		updater_list = new ArrayList<String>();
 		try{
 			stmt = con.createStatement();
 			String sql = "select count(*) from pg_class where relname = '" + Common.history_road_slice_table + "1';";
@@ -47,14 +53,29 @@ public class HistoryTrafficUpdater {
 								+ " time double precision);";
 						Common.logger.debug(sql);
 						stmt.executeUpdate(sql);*/
+						
+						//create index
+						sql = "CREATE INDEX gid_idx_" + i + " ON " + road_slice_table + "(gid)";
+						Common.logger.debug(sql);
+						stmt.executeUpdate(sql);
 					}
+					
 				}
 			}
 		}
-		catch (SQLException e) {
+		catch (PSQLException e) {
+			Common.logger.debug("create history traffic failed");
 		    e.printStackTrace();
+		    con.rollback();
 		}
-		//check if history traffic table exists, if not, create it
+		catch (SQLException e) {
+			Common.logger.debug("create history traffic failed");
+		    e.printStackTrace();
+		    con.rollback();
+		}
+		finally{
+			con.commit();
+		}
 		
 	}
 	
@@ -71,7 +92,13 @@ public class HistoryTrafficUpdater {
 						+ " set time=" + new_time + ",average_speed=" + new_speed + " where gid=" + gid;
 				
 				//Common.logger.debug(sql);
-				stmt.executeUpdate(sql);
+				synchronized(updater_list){
+					updater_list.add(sql);
+					if(updater_list.size() > max_update_num){
+						update_batch();
+						updater_list.clear();
+					}
+				}
 			}
 			//insert
 			else{
@@ -79,7 +106,14 @@ public class HistoryTrafficUpdater {
 			}
 			
 		}
+		catch (PSQLException e) {
+			Common.logger.debug("update history traffic failed");
+		    e.printStackTrace();
+		    con.rollback();
+		    return false;
+		}
 		catch (SQLException e) {
+			Common.logger.debug("update history traffic failed");
 		    e.printStackTrace();
 		    con.rollback();
 		    return false;
@@ -99,7 +133,13 @@ public class HistoryTrafficUpdater {
 			sql += "(" + road.gid + ", " + road.base_gid + ", " + road.length + ", " + road.class_id + ", " 
 			+ road.length/speed + ", " + speed + ");";
 			//Common.logger.debug(sql);
-			stmt.executeUpdate(sql);
+			synchronized(updater_list){
+				updater_list.add(sql);
+				if(updater_list.size() > max_update_num){
+					update_batch();
+					updater_list.clear();
+				}
+			}
 			
 		}
 		catch (SQLException e) {
@@ -111,5 +151,26 @@ public class HistoryTrafficUpdater {
 			con.commit();
 		}
 		return true;
+	}
+	
+	//this method must be called in "synchronized" block
+	private void update_batch() throws SQLException{
+		for(String sql:updater_list){
+			stmt.addBatch(sql);
+		}
+		stmt.executeBatch();
+		stmt.clearBatch();
+	}
+	
+	//flush all update records, called when procedure finished or store current state
+	public void update_all_batch() throws SQLException{
+		synchronized(updater_list){
+			update_batch();
+		}
+		updater_list.clear();
+	}
+	
+	public int get_batch_size(){
+		return updater_list.size();
 	}
 }

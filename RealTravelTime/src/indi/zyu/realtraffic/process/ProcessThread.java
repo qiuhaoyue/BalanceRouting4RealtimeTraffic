@@ -22,15 +22,18 @@ public class ProcessThread extends Thread {
 			//Common.logger.debug("processing");
 			try {
 				Object[] temp_suid_list;
+				while(suid_list.isEmpty()){
+					Thread.sleep(10*1000);
+				}
 				synchronized(suid_list){
 					temp_suid_list = suid_list.toArray();
 				}
+				//Common.logger.debug("thread list size: " + temp_suid_list.length);
 				for(int i=0; i< temp_suid_list.length; i++){
 					int suid = (int) temp_suid_list[i];
 					Common.taxi[suid].process();
 				}
 			
-				Thread.sleep(2*1000);
 				//Common.logger.debug(suid_list.toString());
 			} catch (InterruptedException e) {
 				e.printStackTrace();
@@ -50,5 +53,9 @@ public class ProcessThread extends Thread {
 		synchronized(suid_list){
 			suid_list.add(suid);
 		}		
+	}
+	
+	public int get_list_size(){
+		return suid_list.size();
 	}
 }

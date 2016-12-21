@@ -5,7 +5,7 @@
         <property name="file_name">logs/traffic.log</property>
         <property name="rolling_file_name">logs/traffic-%d{yyyy-MM-dd}-%i.log.gz</property>
         
-        <property name="every_file_size">10M</property>
+        <property name="every_file_size">40M</property>
         <property name="output_log_level">debug</property>
     </Properties>
 

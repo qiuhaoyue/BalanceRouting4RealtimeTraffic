@@ -9,9 +9,12 @@ import indi.zyu.realtraffic.updater.HistoryTrafficUpdater;
 import indi.zyu.realtraffic.updater.RealTrafficUpdater;
 
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
+import java.util.Map.Entry;
 
 import com.bmwcarit.barefoot.matcher.Matcher;
 import com.bmwcarit.barefoot.road.PostGISReader;
@@ -25,8 +28,11 @@ import com.bmwcarit.barefoot.util.Tuple;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.postgresql.copy.CopyManager;
+import org.postgresql.core.BaseConnection;
+import org.postgresql.util.PSQLException;
 /** 
- * 2016Âπ¥3Êúà11Êó• 
+ * 2016ƒÍ3‘¬11»’ 
  * Common.java 
  * author:ZhangYu
  */
@@ -34,27 +40,31 @@ import org.apache.logging.log4j.Logger;
 public class Common {
 	
 	//database config
-	static String JdbcUrl  = "jdbc:postgresql://localhost:5432/";
-	//static String JdbcUrl  = "jdbc:postgresql://166.111.68.99:11044/";
-	
-	//static String Host     = "166.111.68.99";
+	static String JdbcUrl  = "jdbc:postgresql://<ip>:<port>/";
 	static String Host     = "localhost";
-	
-	//static int Port        = 11044;
 	static int Port        = 5432;
 	
-	static String UserName = "secret";
-	static String UserPwd  = "secret";
-	static String DataBase = "secret";
+	public static String UserName = "secret";
+	public static String UserPwd  = "secret";
+	public static String DataBase = "secret";
 	
 	public static String OriginWayTable = "ways";
 	public static String ValidSampleTable  = "valid_gps_utc";
 	static String FilterSampleTable = ValidSampleTable;
 	
+	//for restore
+	public static boolean is_restore = false;
+	public static String  restore_date;
+	
 	//traffic table
 	public static String real_road_slice_table = "real_road_time_slice_";
 	public static String real_turning_slice_table ="real_turning_time_slice_";
 	public static String history_road_slice_table = "history_road_time_slice_";
+
+	//restore table
+	public static String restore_sample_table = "restore_sample";//backup of unprocessed samples
+	public static String restore_road_table= "restore_road_traffic";//backup of road traffic
+	public static String restore_turning_table= "restore_turning_traffic";//backup of turning traffic
 	
 	static String UnKnownSampleTable = "match_fail_gps";
 	
@@ -62,14 +72,19 @@ public class Common {
 	public static String Date_Suffix = "";
 	
 	public static double max_speed = 33.33;
-	public static double min_speed = 0.1;
+	public static double min_speed = 0.5;//improve from 0.1 to 0.5
 	static double min_interval = 20;
 	static double speed_alpha = 0.9;
 	public static double history_update_alpha = 0.8;// to update history traffic
 	public static double init_turning_time = 4;
 	public static int delay_update_thresold = 1;//to get delay updated traffic
 	public static int max_infer_traffic_interval = 2;// to infer the speed if no traffic sensed in the interval
-	public static double smooth_alpha = 0.9;//to smooth traffic
+	public static double smooth_delta = 0.05;// to smooth traffic
+	
+	public static int MIN_GPS_INTERVAL = 10;
+	public static int MAX_GPS_INTERVAL = 600;//by second
+	
+	public static double MIN_TURNING_TIME = 0.1;// avoid too small turning time
 	
 	public static int match_windows_size = 6;
 	
@@ -78,7 +93,7 @@ public class Common {
 	public static long start_utc;
 	public static long end_utc;
 	
-	public static long max_seg;
+	public static int max_seg = 288;// 5 minutes a period
 	
 	//to control speed of data emission
 	public static int emission_step = 1;//send points within next x seconds every time
@@ -109,8 +124,11 @@ public class Common {
 	public static Map<Short, Tuple<Double, Integer>> road_config;
 	
 	//for debug calculate time
-	public static int thread_number = 4;
+	public static int thread_number;
 	public static ProcessThread[] thread_pool;
+	
+	//change rate of traffic
+	public static ArrayList<Double>[] change_rate;
 	
 	
 	//initialize params
@@ -124,29 +142,35 @@ public class Common {
 			matcher = new Matcher(Common.map, new Dijkstra<Road, RoadPoint>(),
 		            new TimePriority(), new Geography());
 			
-			max_seg=(Common.end_utc-Common.start_utc)/Common.period;//96
-			
-			gps_updater = new GPSUpdater(100, "gps_final" + Date_Suffix);
-			unkown_gps_updater = new GPSUpdater(100, UnKnownSampleTable);
-			real_traffic_updater = new RealTrafficUpdater();
+			unkown_gps_updater = new GPSUpdater(100, UnKnownSampleTable);	
 			history_traffic_updater = new HistoryTrafficUpdater();
+			real_traffic_updater = new RealTrafficUpdater();
 			
 		}
 		catch (Exception e) {
 			e.printStackTrace();
 		}
-		taxi = new TaxiInfo[max_suid + 1];
+		//taxi = new TaxiInfo[max_suid + 1];
+		/*change_rate = new ArrayList[Common.max_seg + 1];
+		for(int i=1; i<=Common.max_seg; i++){
+			change_rate[i] = new ArrayList<Double>();
+		}*/
 		//create thread
-		int size = Runtime.getRuntime().availableProcessors();
+		/*int size = Runtime.getRuntime().availableProcessors();
 		Common.logger.debug("pool size: " + size);
 		thread_number = size;
 		thread_pool = new ProcessThread[thread_number];
 		for(int i=0; i< thread_number; i++){
 			thread_pool[i] = new ProcessThread();
 			thread_pool[i].start();
-		}
-		
+		}*/
 	}
+	
+	//create traffic table named with date
+	public static void init_traffic_table() throws SQLException{
+		real_traffic_updater.create_traffic_table(Date_Suffix);
+	}
+	
 	
 	public static void init_road_config(){
 		road_config = new HashMap<Short, Tuple<Double, Integer>>();
@@ -206,7 +230,7 @@ public class Common {
 	}
 	
 
-	//‰ªémerged_table‰∏≠Á≠õÈÄâÂá∫Á¨¶Âêà‰ΩçÁΩÆËåÉÂõ¥ÁöÑÁÇπ,Â≠òÂÖ•matching_table
+	//¥”merged_table÷–…∏—°≥ˆ∑˚∫œŒª÷√∑∂Œßµƒµ„,¥Ê»Îmatching_table
 	public static void filter_samples(String database, String merged_table, String matching_table, long start_utc, long end_utc, long min_x, long max_x, long min_y, long max_y){
 		
 		Connection con = null;
@@ -386,12 +410,12 @@ public class Common {
 			double maxspeed = road.maxspeed();
 			AllocationRoadsegment cur_road=new AllocationRoadsegment(gid,maxspeed, 10.0, 0);	
 			cur_road.length = road.length();//meters
-			
+		
 			//set initial speed
-			double default_speed = default_traffic[gid][1];
+			double default_speed = default_traffic[gid][288];
 			//no direct default speed, use average speed of roads in same class_id
 			if(default_speed <=0){
-				default_speed = default_class_traffic[road.type()][1];
+				default_speed = default_class_traffic[road.type()][288];
 			}
 			//if no default speed of roads in same class_id, set 10
 			cur_road.avg_speed = default_speed > 0 ? default_speed : 10;
@@ -401,6 +425,16 @@ public class Common {
 			cur_road.class_id = road.type();
 			roadlist[(int)gid] = cur_road;
 		}
+		//restore traffic if necessary
+		if(is_restore == true){
+			try {
+				restore(Common.restore_date);
+			} catch (SQLException e) {
+				// TODO Auto-generated catch block
+				Common.logger.error("restore failed");
+				e.printStackTrace();
+			}
+		}
 		
 	}
 	
@@ -408,7 +442,7 @@ public class Common {
 	public static void init_default_traffic() throws SQLException{
 		int length = Common.roadlist.length;
 		default_traffic = new double[length][(int)Common.max_seg + 1];
-		//28 classes of road ,max id is 305, set 400 here
+		//28 classes of road ,max id is 305, set 350 here
 		default_class_traffic = new double [350][(int)Common.max_seg + 1];
 		//start read traffic from database
 		Connection con = Common.getConnection();
@@ -466,10 +500,17 @@ public class Common {
 				sql = "DROP TABLE IF EXISTS " + turning_slice_table + ";";
 				Common.logger.debug(sql);
 				stmt.executeUpdate(sql);
+				
+				//clear history table
+				/*String road_slice_table = Common.history_road_slice_table + i;
+				String sql = "DROP TABLE IF EXISTS " + road_slice_table + ";";
+				Common.logger.debug(sql);
+				stmt.executeUpdate(sql);*/
 			}
 		}
 		catch (SQLException e) {
 		    e.printStackTrace();
+		    Common.logger.error("clear traffic_slice_table " + date + "failed");
 		}
 		finally{
 			con.commit();
@@ -480,6 +521,284 @@ public class Common {
 	//return slice number of sample by utc
 	public static int get_seq(Sample sample){
 		int seq_num=(int)(max_seg-(end_utc-sample.utc.getTime()/1000)/period);
+		//judge points at 00:00
+		if(seq_num == 0 && sample.utc.getTime()/1000 == start_utc){
+			seq_num += 1;
+		}
+		//points from the day before
+		while(seq_num <= 0){
+			seq_num += max_seg;
+		}
+		//sometimes there are some points from next day
+		if(seq_num > Common.max_seg){
+			seq_num = Common.max_seg;
+		}
 		return seq_num;
 	}
+	
+	//store current state, including samples int taxi queue and matching windows, current traffic
+	public static void store(String date) throws SQLException{
+		
+		Common.logger.debug("start to store current state");
+		Connection con = getConnection();
+		Statement stmt = con.createStatement();
+		String sql = "";
+		try{
+			sql = "DROP TABLE IF EXISTS " + Common.restore_sample_table + date + ";";
+			Common.logger.debug(sql);
+			stmt.executeUpdate(sql);
+			
+			sql = "DROP TABLE IF EXISTS " + Common.restore_road_table + date + ";";
+			Common.logger.debug(sql);
+			stmt.executeUpdate(sql);
+			
+			sql = "DROP TABLE IF EXISTS " + Common.restore_turning_table + date + ";";
+			Common.logger.debug(sql);
+			stmt.executeUpdate(sql);
+			
+			//create table
+			sql = "CREATE TABLE " + Common.restore_sample_table + date + "(suid bigint, utc bigint, lat double precision, "
+					+ "lon double precision, head bigint, is_pre_sample boolean);";
+			Common.logger.debug(sql);
+			stmt.executeUpdate(sql);
+			
+			sql = "CREATE TABLE " + Common.restore_road_table + date + "(gid integer, "
+					+ " time double precision, average_speed double precision, seq integer, date char(12));";
+			Common.logger.debug(sql);
+			stmt.executeUpdate(sql);
+			
+			sql = "CREATE TABLE " + Common.restore_turning_table + date + "(gid integer, next_gid integer,"
+					+ " time double precision);";
+			Common.logger.debug(sql);
+			stmt.executeUpdate(sql);
+		}
+		catch (PSQLException e) {
+		    e.printStackTrace();
+		    Common.logger.error("create store table failed");
+		}
+		catch (SQLException e) {
+		    e.printStackTrace();
+		    Common.logger.error("create store table failed");
+		}
+		finally{
+			con.commit();
+			Common.logger.debug("create store table  " + "finished");
+		}
+		
+		//store unprocessed sample and pre_sample of each taxi
+		ArrayList<Sample> unprocessed_list = new ArrayList<Sample>();
+		ArrayList<Sample> pre_sample_list  = new ArrayList<Sample>();
+		Sample tmp_sample = null;
+		for(int i=1; i< Common.taxi.length; i++){
+			if(Common.taxi[i] == null){
+				continue;
+			}
+			unprocessed_list.addAll(Common.taxi[i].get_unprocessed_samples());
+			tmp_sample = Common.taxi[i].get_pre_sample();
+			if(tmp_sample != null){
+				pre_sample_list.add(tmp_sample);
+			}
+		}
+
+		Common.logger.debug("store sample size " + unprocessed_list.size());
+		try{
+			//insert samples, in taxi queue or matching windows
+			for(Sample sample : unprocessed_list){
+				sql = "Insert into " + Common.restore_sample_table + date + " (suid, utc, lat, "
+						+ "lon, head, is_pre_sample) values \n";
+				sql = sql + " (" + sample.getSimpleAttributeForInsert() + ", false);";
+				//Common.logger.debug(sql);
+				stmt.addBatch(sql);
+			}
+			
+			//insert pre_sample of each taxi
+			for(Sample sample : pre_sample_list){
+				sql = "Insert into " + Common.restore_sample_table + date + " (suid, utc, lat, "
+						+ "lon, head, is_pre_sample) values \n";
+				sql = sql + " (" + sample.getSimpleAttributeForInsert() + ", true);";
+				//Common.logger.debug(sql);
+				stmt.addBatch(sql);
+			}
+			stmt.executeBatch();
+			
+		}
+		catch (PSQLException e) {
+		    e.printStackTrace();
+		    Common.logger.error("store: insert sample failed");
+		}
+		catch (SQLException e) {
+		    e.printStackTrace();
+		    Common.logger.error("store: insert sample failed");
+		}
+		finally{
+			con.commit();
+			Common.logger.debug("store: insert sample " + "finished");
+		}
+		
+		try{	
+			//store traffic
+			AllocationRoadsegment road;
+			HashMap<Integer, Double> turning_time = new HashMap<Integer, Double>();
+			for(int i=0;i<Common.roadlist.length;i++){
+				road = Common.roadlist[i];
+				//no traffic sensed
+				if(road.get_seq() == -1){
+					continue;
+				}
+				//store road traffic
+				sql = "Insert into " + Common.restore_road_table + date
+					+ "(gid, time, average_speed, seq, date) values \n";
+				sql += "(" + i + ", " + road.get_road_time() + ", " + road.get_road_speed()
+						+ ", " + road.get_seq() + ", '" + road.get_date() + "');";
+				stmt.addBatch(sql);
+				
+				//store turning traffic
+				turning_time = road.get_all_turning_time();
+				Set<Entry<Integer, Double>> entryset=turning_time.entrySet();
+				for(Entry<Integer, Double> m:entryset){
+					sql = "Insert into " + Common.restore_turning_table + date
+							+ "(gid, next_gid, time) values \n";
+					sql += "(" + i + ", " + m.getKey() + ", " + m.getValue() + ");";
+					stmt.addBatch(sql);
+				}
+    		}
+			stmt.executeBatch();
+			//flush updater records
+			real_traffic_updater.update_all_batch();
+			history_traffic_updater.update_all_batch();
+		}
+		catch (PSQLException e) {
+		    e.printStackTrace();
+		    Common.logger.error("store: insert traffic failed");
+		}
+		catch (SQLException e) {
+		    e.printStackTrace();
+		    Common.logger.error("store: insert traffic failed");
+		}
+		finally{
+			con.commit();
+			Common.logger.debug("store: insert traffic " + "finished");
+		}
+		
+	}
+	
+	//restore current state, including samples int taxi queue and matching windows, current traffic
+	public static void restore(String date) throws SQLException{
+		Common.logger.debug("start to restore current state");
+		Connection con = getConnection();
+		try{
+			//check wether table exists
+			Statement stmt = con.createStatement();
+			String sql = "select count(*) from pg_class where relname = '" + Common.restore_sample_table + date + "';";
+			Common.logger.debug(sql);
+			ResultSet rs = stmt.executeQuery(sql);
+			if(rs.next()){
+				//table not exists
+				if(rs.getInt(1) == 0){
+					Common.logger.error("restore failed, table " + Common.restore_sample_table + date + " not exists");
+				}
+			}
+			
+			sql = "select count(*) from pg_class where relname = '" + Common.restore_road_table + date + "';";
+			Common.logger.debug(sql);
+			rs = stmt.executeQuery(sql);
+			if(rs.next()){
+				//table not exists
+				if(rs.getInt(1) == 0){
+					Common.logger.error("restore failed, table " + Common.restore_road_table + date + " not exists");
+				}
+			}
+			
+			sql = "select count(*) from pg_class where relname = '" + Common.restore_turning_table + date + "';";
+			Common.logger.debug(sql);
+			rs = stmt.executeQuery(sql);
+			if(rs.next()){
+				//table not exists
+				if(rs.getInt(1) == 0){
+					Common.logger.error("restore failed, table " + Common.restore_turning_table + date + " not exists");
+				}
+			}
+			
+			//restore road traffic
+			sql = "select * from " + Common.restore_road_table + date + ";";
+			Common.logger.debug(sql);
+			rs = stmt.executeQuery(sql);
+			AllocationRoadsegment road;
+			int gid, next_gid;
+			while(rs.next()){
+				gid = rs.getInt("gid");
+				//time double precision, average_speed double precision, seq integer, date char(12));";
+				road = roadlist[(int)gid];
+				road.time = rs.getDouble("time");
+				road.avg_speed = rs.getDouble("average_speed");
+				road.seq = rs.getInt("seq");
+				road.date = rs.getString("date");
+				roadlist[(int)gid] = road;
+			}
+			
+			//restore turning traffic
+			sql = "select * from " + Common.restore_turning_table + date + ";";
+			Common.logger.debug(sql);
+			rs = stmt.executeQuery(sql);
+			while(rs.next()){
+				gid = rs.getInt("gid");
+				next_gid = rs.getInt("next_gid");
+				if(roadlist[(int)gid].add_turning_time(next_gid, rs.getDouble("time")) == false){
+					Common.logger.debug("duplicate turning!");
+				}
+			}
+			
+			//send unprocessed samples and pre_sample of each taxi
+			sql = "select * from " + Common.restore_sample_table + date + " order by utc;";
+			rs = stmt.executeQuery(sql);
+			Common.logger.debug("select unprocessed samples int restore table finished");
+			
+			ArrayList<Sample> unprocessed_list = new ArrayList<Sample>();
+			while(rs.next()){
+				Sample gps = new Sample(date, rs.getLong("suid"), rs.getLong("utc"), rs.getLong("lat"), 
+						rs.getLong("lon"), (int)rs.getLong("head"));
+				boolean is_pre_sample = rs.getBoolean("is_pre_sample");
+			
+				int suid = (int) gps.suid;
+				if(Common.taxi[suid] == null){
+					Common.taxi[suid] = new TaxiInfo();
+					int number = suid % Common.thread_number;
+					Common.thread_pool[number].put_suid(suid);
+				}
+				
+				//restore pre_sample
+				if(is_pre_sample == true){
+					Common.taxi[suid].set_pre_sample(gps);
+				}
+				//store sample, pre_sample should be set first
+				else{
+					unprocessed_list.add(gps);
+				}
+			}
+			//send unprocessed sample
+			for(Sample sample:unprocessed_list){
+				Common.taxi[(int)sample.suid].add_gps(sample);
+			}
+			
+		}
+		catch (SQLException e) {
+		    e.printStackTrace();
+		    Common.logger.error("restore " + date + " failed");
+		}
+		finally{
+			con.commit();
+			Common.logger.error("restore  " + date + " finished");
+		}	
+	}
+	
+	public static void add_change_rate(int seq, double rate){
+		if(rate > 30){
+			return;
+		}
+		synchronized(change_rate[seq]){
+			change_rate[seq].add(rate);
+		}
+	}
+	
+
 }

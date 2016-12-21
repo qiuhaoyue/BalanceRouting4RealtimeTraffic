@@ -1,5 +1,5 @@
 /** 
- * 2016å¹´3æœˆ12æ—¥ 
+ * 2016Äê3ÔÂ12ÈÕ 
  * AllocationRoadsegment.java 
  * author:ZhangYu
  */
@@ -11,76 +11,50 @@ import indi.zyu.realtraffic.gps.Sample;
 
 import java.sql.SQLException;
 import java.util.HashMap;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class AllocationRoadsegment extends RoadSegment {
 	
-	double model_maxspeed;
-	double model_alpha;
-	double model_beta;
-	double model_capacity;
-	double model_r2;
-	private Lock road_lock = null;
-	private Lock turning_lock = null;
-	private Lock seq_lock = null;
-	int seq;//by last updated utc,1-288
+	public int seq;//by last updated utc,1-288
+	public String date;//by last updated date
 
 	HashMap<Integer, Double> turning_time=null;
+	HashMap<Integer, Integer> turning_seq=null;
 	public AllocationRoadsegment(){
 		super();
-		this.model_maxspeed=-1;
-		this.model_alpha=-1;
-		this.model_beta=-1;
-		this.model_capacity=-1;
 		this.seq = -1;
+		this.date = "unknown";
 		turning_time=new HashMap<Integer, Double>();
-		road_lock = new ReentrantLock();
-		turning_lock = new ReentrantLock();
-		seq_lock = new ReentrantLock();
+		turning_seq = new HashMap<Integer, Integer>();
 	}
 	
 	public AllocationRoadsegment(long gid, double max_speed, double average_speed, int reference){
 		super(gid, max_speed > Common.max_speed ? Common.max_speed:max_speed, 
 				average_speed < Common.min_speed ? Common.min_speed : average_speed, reference);
 		turning_time=new HashMap<Integer, Double>();
+		turning_seq = new HashMap<Integer, Integer>();
 		this.seq = -1;
-		road_lock = new ReentrantLock();
-		turning_lock = new ReentrantLock();
-		seq_lock = new ReentrantLock();
+		this.date = "unknown";
 	}
 	
 	AllocationRoadsegment(int gid, double average_speed, double taxi_count, double taxi_ratio){
 		super(gid, average_speed==0 ? 20 : average_speed, taxi_count, taxi_ratio);
 		turning_time=new HashMap<Integer, Double>();
+		turning_seq = new HashMap<Integer, Integer>();
 		this.seq = -1;
-		road_lock = new ReentrantLock();
-		turning_lock = new ReentrantLock();
-		seq_lock = new ReentrantLock();
+		this.date = "unknown";
 	}
 	
-	AllocationRoadsegment(int cur_gid, double revised_max_speed, double alpha, double beta, double capacity){
-		super();
-		this.gid=cur_gid;
-		this.model_maxspeed=revised_max_speed;
-		this.model_alpha=alpha;
-		this.model_beta=beta;
-		this.model_capacity=capacity;
-		this.seq = -1;
-		road_lock = new ReentrantLock();
-		turning_lock = new ReentrantLock();
-		seq_lock = new ReentrantLock();
-	}
-	
-	public boolean add_turning_speed(int next_gid, double speed){
+	public boolean add_turning_time(int next_gid, double time){
 		if(this.turning_time.containsKey(next_gid)){
 			return false;
 		}
 		else{
-			turning_time.put(next_gid, speed);
+			turning_time.put(next_gid, time);
+			turning_seq.put(next_gid, -1);
 			return true;
 		}
 	}
+	
 	
 	public double get_speed(int next_gid){
 		if(next_gid>0 && turning_time.containsKey(next_gid)){
@@ -109,52 +83,106 @@ public class AllocationRoadsegment extends RoadSegment {
 	}
 	
 	
-	public void update_speed_sample(double speed, Sample sample){
-		if(speed <= 0){
+	synchronized public void update_speed_sample(double speed, Sample sample){
+		if(speed < 0){
 			return;
 		}
+		//lock.lock();
 		int cur_seq = Common.get_seq(sample);
-		if(!check_seq(cur_seq)){
+		int pre_seq = this.seq;
+		//seq_lock.lock();
+		if(!check_seq(cur_seq, sample.date)){
+			//Common.logger.debug("sample too old");
+			//lock.unlock();
 			return;
 		}
+		//seq_lock.unlock();
 		
-		road_lock.lock();
-		this.avg_speed = speed;
-		this.time = length / avg_speed;
-		road_lock.unlock();
 		
-	}
-	//update speed in current seq
-	public void update_speed(double speed){
-		if(speed <= 0){
+		//traffic jam, slow down
+		if(speed == 0){
+			//road_lock.lock();
+			this.avg_speed = restrict_speed(this.avg_speed * 0.9);
+			this.time = this.length / this.avg_speed;
+			//road_lock.unlock();	
+		}
+		else if(speed > Common.max_speed){
 			return;
 		}
-		
-		road_lock.lock();
-		this.avg_speed = speed;
-		this.time = length / avg_speed;
-		road_lock.unlock();
-		
+		else{
+			speed = restrict_speed(speed);
+			//smooth
+			int diff_seq = get_diff_seq(pre_seq, cur_seq);
+			double smooth_alpha = 0.9 - diff_seq * Common.smooth_delta;
+			if(smooth_alpha < 0){
+				smooth_alpha = 0;
+			}
+			//delay sample
+			else if(smooth_alpha > 0.9){
+				smooth_alpha = 0.9;
+			}
+			//road_lock.lock();
+			this.avg_speed = restrict_speed(speed * (1-smooth_alpha) + 
+					this.avg_speed * smooth_alpha);
+			this.time = this.length / this.avg_speed;
+			//road_lock.unlock();	
+		}	
+		//lock.unlock();
 	}
 	
-	public void update_time(double time, Sample sample){
-		
-		if(time <= 0){
+	//update speed in current seq
+	private void update_speed(double speed){
+		if(speed <= 0){
 			return;
 		}
+		
+		//road_lock.lock();
+		this.avg_speed = speed;
+		this.time = this.length / this.avg_speed;
+		//road_lock.unlock();
+	}
+	
+	//update road time, return current seq to update turning time, -3 stands for error updating
+	synchronized public int update_time(double new_time, Sample sample){
+		if(new_time <= 0){
+			return -3;
+		}
+		//lock.lock();
 		int cur_seq = Common.get_seq(sample);
-		if(!check_seq(cur_seq)){
-			return;
+		int pre_seq = this.seq;
+		//seq_lock.lock();
+		if(!check_seq(cur_seq, sample.date)){
+			//Common.logger.debug("sample too old");
+			//lock.unlock();
+			return -3;
 		}
+		//check sensed speed
+		double sensed_speed = this.length/new_time;
+		if(sensed_speed > Common.max_speed){
+			return -3;
+		}
+		//seq_lock.unlock();
 		
-		road_lock.lock();
-		this.time = time;
-		this.avg_speed = length / time;
-		if(this.avg_speed > Common.max_speed){
-			this.avg_speed = Common.max_speed;
-			this.time = length / avg_speed;
+		//smooth
+		int diff_seq = get_diff_seq(pre_seq, cur_seq);
+		double smooth_alpha = 0.9 - diff_seq * Common.smooth_delta;
+		if(smooth_alpha < 0){
+			smooth_alpha = 0;
 		}
-		road_lock.unlock();	
+		//delay sample
+		else if(smooth_alpha > 0.9){
+			smooth_alpha = 0.9;
+		}
+		//road_lock.lock();
+		
+		this.time = new_time * (1-smooth_alpha) + this.time * smooth_alpha;
+		
+		this.avg_speed = restrict_speed(this.length / this.time);
+		this.time = this.length / this.avg_speed;
+		
+		//road_lock.unlock();	
+		//lock.unlock();
+		return cur_seq;
 	}
 	
 	public double get_turning_time(int gid){
@@ -166,70 +194,93 @@ public class AllocationRoadsegment extends RoadSegment {
 		}
 	}
 	
+	public int get_turning_seq(int gid){
+		if(turning_seq.containsKey(gid)){
+			return turning_seq.get(gid);
+		}
+		else{
+			return 0;
+		}
+	}
+	
 	public HashMap<Integer, Double> get_all_turning_time(){
 		return turning_time;
 	}
 	
-	public void update_turning_time(int gid, double time, Sample sample){
-		if(time <= 0){
-			return;
-		}
-		int cur_seq = Common.get_seq(sample);
-		if(!check_seq(cur_seq)){
+	public HashMap<Integer, Integer> get_all_turning_seq(){
+		return turning_seq;
+	}
+	
+	//road time has been updated before, so no need to check seq
+	synchronized public void update_turning_time(int gid, double new_turning_time, int cur_seq){
+		if(new_turning_time <= 0){
 			return;
 		}
 		
-		turning_lock.lock();
-		turning_time.put(gid, time);
-		turning_lock.unlock();
+		//lock.lock();
+		//smooth
+		int diff_seq = get_diff_seq(this.get_turning_seq(gid),cur_seq);
+		double smooth_alpha = 0.9 - diff_seq * Common.smooth_delta;
+		if(smooth_alpha < 0){
+			smooth_alpha = 0;
+		}
+		//delay sample
+		else if(smooth_alpha > 0.9){
+			smooth_alpha = 0.9;
+		}
+		
+		new_turning_time = this.get_turning_time(gid) * smooth_alpha + 
+				new_turning_time * (1 - smooth_alpha);
+		
+		//turning_lock.lock();
+		turning_time.put(gid, restrict_turning_time(new_turning_time));
+		turning_seq.put(gid, cur_seq);//maybe do not need to consider the problem of asynchronization
+		//turning_lock.unlock();
+		//lock.unlock();
 		
 	}
 	
-	private boolean check_seq(int cur_seq){
+	//check whether to update traffic and insert old traffic
+	private boolean check_seq(int cur_seq, String cur_date){
 		//Common.logger.debug("cur: " + cur_seq + "old " + this.seq);
 		//update traffic in last seq
 		if(this.seq == -1){
 			this.seq = cur_seq;
-			/*try{
-				for(int i=1; i< cur_seq; i++){
-					double default_speed = Common.default_traffic[(int)gid][i];
-					//use default speed directly
-					if(default_speed > 0){
-						Common.real_traffic_updater.update_road((int)gid, i, default_speed);
-					}				
-				}
-				return true;
-			}
-			catch (SQLException e) {
-				Common.logger.debug("update real traffc failed!");
-			    e.printStackTrace();
-			    return false;
-			}*/
+			this.date = cur_date;
 			return true;
 		}
-		
-		if(cur_seq > this.seq){
-			seq_lock.lock();
+		//current sample is later than last sample
+		if(cur_seq > this.seq || cur_date.compareTo(this.date) > 0){
+			
+			//update current seq and date
+			//seq_lock.lock();
 			int old_seq = this.seq;	
 			this.seq = cur_seq;
-			seq_lock.unlock();
+			String old_date = this.date;
+			if(cur_date != this.date){
+				this.date = cur_date;
+			}
+			//seq_lock.unlock();
+			
+			//insert old traffic to database
 			try{
-				Common.real_traffic_updater.update((int)gid, old_seq);
-				Common.logger.debug("update real traffc success! seq: " + old_seq + " len: " + this.length);
+				Common.real_traffic_updater.update(old_date, (int)gid, old_seq);
+				Common.logger.debug("update real traffc success! seq: " + old_seq + " new seq: " + 
+				this.seq + " gid: " + this.gid + " date: " + old_date + " cur date: " + this.date);
 				//no traffic sensed in the interval
-				if(cur_seq - old_seq > 1){
+				if(get_diff_seq(cur_seq, old_seq) > 1){
 					//use history traffic to infer speed
-					infer_speed(old_seq, cur_seq);
+					infer_speed(old_date, old_seq, cur_seq);
 				}
 			}
 			catch (SQLException e) {
-				Common.logger.debug("update real traffc failed!");
-			    e.printStackTrace();
-			    return false;
+				Common.logger.error("update real traffc failed!");
+				e.printStackTrace();
+				return false;
 			}
 			return true;		
 		}
-		else if(this.seq - cur_seq <= Common.delay_update_thresold){			
+		else if(get_diff_seq(cur_seq, this.seq) <= Common.delay_update_thresold){			
 			return true;
 		}
 		//sample is too old
@@ -240,8 +291,19 @@ public class AllocationRoadsegment extends RoadSegment {
 		return this.seq;
 	}
 	
+	public String get_date(){
+		return this.date;
+	}
+	
+	public double get_road_time(){
+		return this.time;
+	}
+	
+	public double get_road_speed(){
+		return this.avg_speed;
+	}
 	//insert current traffic to database to simulate a new day
-	public void flush(){
+	/*public void flush(){
 		if(this.seq != -1){
 			try {
 				Common.real_traffic_updater.update((int)gid, this.seq);
@@ -251,10 +313,10 @@ public class AllocationRoadsegment extends RoadSegment {
 				e.printStackTrace();
 			}
 		}
-	}
+	}*/
 	
 	//infer traffic if no traffic sensed during intervals
-	private void infer_speed(int pre_seq, int cur_seq) throws SQLException{
+	private void infer_speed(String pre_date, int pre_seq, int cur_seq) throws SQLException{
 		double pre_speed = Common.default_traffic[(int)gid][pre_seq];
 		if(pre_speed <= 0){
 			return;
@@ -262,27 +324,36 @@ public class AllocationRoadsegment extends RoadSegment {
 		double correction_factor = this.avg_speed / pre_speed;
 		double default_speed = 0.0;
 		double infer_speed = 0.0;
-		double class_speed = 0.0;
+		double class_speed_transverse = Common.default_class_traffic[this.class_id][pre_seq];
+		double class_speed_vertical = 0.0;
 		double max_speed_limit = 0.0;
 		double min_speed_limit = 0.0;
-		for(int i=pre_seq+1; i<= pre_seq + Common.max_infer_traffic_interval; i++){
-			default_speed = Common.default_traffic[(int)gid][i];
+		
+		int max_infer_seq = pre_seq + Common.max_infer_traffic_interval;
+		if(max_infer_seq > cur_seq - 1){
+			max_infer_seq = cur_seq - 1;
+		}
+		for(int i=pre_seq+1; i<= max_infer_seq; i++){
+			int tmp_seq = i % Common.max_seg;
+			
+			default_speed = Common.default_traffic[(int)gid][tmp_seq];
 			
 			if(default_speed <= 0){
 				continue;
 			}
 			//calculate inferred speed
 			infer_speed = default_speed * correction_factor;
-			class_speed = Common.default_class_traffic[this.class_id][i];
+			class_speed_vertical = Common.default_class_traffic[this.class_id][tmp_seq];
 			//avoid saltation
-			max_speed_limit = this.avg_speed + (i- pre_seq) * class_speed;
-			min_speed_limit = this.avg_speed - (i- pre_seq) * class_speed;
-			
-			if(max_speed_limit > default_speed + class_speed){
-				max_speed_limit = default_speed + class_speed;
+			//transverse comparison
+			max_speed_limit = this.avg_speed + (i- pre_seq) * class_speed_transverse;
+			min_speed_limit = this.avg_speed - (i- pre_seq) * class_speed_transverse;
+			//vertical comparison
+			if(max_speed_limit > default_speed + class_speed_vertical){
+				max_speed_limit = default_speed + class_speed_vertical;
 			}
-			if(min_speed_limit < default_speed - class_speed){
-				min_speed_limit = default_speed - class_speed;
+			if(min_speed_limit < default_speed - class_speed_vertical){
+				min_speed_limit = default_speed - class_speed_vertical;
 			}			
 			if(max_speed_limit <= min_speed_limit){
 				continue;
@@ -295,31 +366,61 @@ public class AllocationRoadsegment extends RoadSegment {
 				infer_speed = min_speed_limit;
 			}
 			
-			if(i < cur_seq){
+			//if(tmp_seq != cur_seq){
 				//insert it
-				Common.real_traffic_updater.update_road((int)gid, i, infer_speed);	
-			}
+				String tmp_date;
+				//another day
+				if(tmp_seq != i ){
+					tmp_date = this.date;
+				}
+				else{
+					tmp_date = pre_date;
+				}
+				/*Common.logger.debug("infer traffc seq: " + tmp_seq + " cur seq: " + 
+						this.seq + " gid: " + this.gid  + "cur date: " + this.date);*/
+				Common.real_traffic_updater.update_road(tmp_date, (int)gid, tmp_seq, infer_speed);	
+			//}
 			
 			//correct current speed
-			else if(i == cur_seq){
+			/*else{
 				//treat infer speed as sensed speed to smooth current speed
-				double new_speed = this.avg_speed * Common.smooth_alpha 
-					+ infer_speed * (1 - Common.smooth_alpha);
-				
-				if(new_speed > max_speed){
-					new_speed = this.max_speed;
-				}
-				if(new_speed < Common.min_speed){
-					new_speed = Common.min_speed;
-				}
+				double smooth_alpha = 0.8;		
+				double new_speed = this.avg_speed * smooth_alpha 
+					+ infer_speed * (1 - smooth_alpha);				
+				new_speed = restrict_speed(new_speed);
 				
 				update_speed(new_speed);
-			}
-			else{
-				break;
-			}
+			}*/
 						
 		}
+	}
+	
+	//restrict speed between max and min speed
+	private double restrict_speed(double speed){
+		if(speed > this.max_speed){
+			speed = this.max_speed;
+		}
+		if(speed < Common.min_speed){
+			speed = Common.min_speed;
+		}
+		return speed;
+	}
+	
+	//restrict turning time
+	private double restrict_turning_time(double time){
+		if(time < Common.MIN_TURNING_TIME){
+			time = Common.MIN_TURNING_TIME;
+		}
+		//there is not suitable way to get max turning time
+		return time;
+	}
+	
+	private int get_diff_seq(int old_seq, int cur_seq){
+		int diff_seq = cur_seq - old_seq;
+		while(diff_seq < 0){
+			diff_seq += Common.max_seg;
+		}
+		return diff_seq;
 	}
 	
 }

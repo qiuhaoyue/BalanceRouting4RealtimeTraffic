@@ -50,13 +50,17 @@ public class TestMapMatching {
 				continue;
 			}
 			Common.logger.debug("suid " + i +": ");
+			if(taxi[i].size() < 300){
+				Common.logger.debug("too short, skip");
+			}
 			//offline
 			offline_match(i, taxi[i]);
 			//caculate online map-matching with different window size and compare with offline matching
 			for(int window_size=min_window_size; window_size<=max_window_size; window_size++){
 				online_match(i, taxi[i], window_size);
 				//normal condition, if some points match failed, matched number of offline will decrease
-				if(offline_gid[i].size() - online_gid[i].size() == window_size + 1){
+				if(offline_gid[i].size() > 0 && offline_gid[i].size() >= online_gid[i].size()
+						&& offline_gid[i].size() - online_gid[i].size() <= window_size + 1){
 					total_counter[window_size] += online_gid[i].size();
 
 					for(int k=0; k< online_gid[i].size(); k++){
@@ -76,23 +80,30 @@ public class TestMapMatching {
 				}
 			}	
 		}
+		
 		double error_rate;
+		double[][] data = new double[2][max_window_size - min_window_size + 1];
 		for(int window_size=min_window_size; window_size<=max_window_size; window_size++){
 			//gid comparison
 			Common.logger.debug("windows size: " + window_size);
 			Common.logger.debug("total: " + total_counter[window_size] + ", error: " + error_counter[window_size]);
 			error_rate = (double)error_counter[window_size]/(double)total_counter[window_size];
 			Common.logger.debug("error rate: " + error_rate);
+			data[0][window_size - min_window_size] = error_rate;
+			
 			//route comparison
 			Common.logger.debug("route total: " + route_total_counter[window_size] + ", error: " + route_error_counter[window_size]);
 			error_rate = (double)route_error_counter[window_size]/(double)route_total_counter[window_size];
 			Common.logger.debug("route error rate: " + error_rate);
+			data[1][window_size - min_window_size] = error_rate;
 		}
+		Chart.output(data, "/home/zyu/data_map_matching");
 		
 		
 	}
 	
 	public static void offline_match(int suid, ArrayList<Sample> trajectory){
+		//Common.logger.debug(trajectory.toString());
 		KState<MatcherCandidate, MatcherTransition, MatcherSample> state = new KState<MatcherCandidate, MatcherTransition, 
 				MatcherSample>();
 		Sample pre_sample = null;//to avoid stop point
@@ -105,10 +116,13 @@ public class TestMapMatching {
 					sample.utc.getTime()/1000, new Point(sample.lon, sample.lat));
 			Set<MatcherCandidate> vector = Common.matcher.execute(state.vector(), state.sample(),
 		    		matcher_sample);
-			//state.update2(vector, matcher_sample);
+			state.update2(vector, matcher_sample);
 			pre_sample = sample;
 		}
 		List<MatcherCandidate> sequence = state.sequence();
+		if(sequence == null){
+			return;
+		}
 		for(int i=0; i< sequence.size(); i++){
 			MatcherCandidate estimate = sequence.get(i);
 			int gid = (int)estimate.point().edge().id();
@@ -178,7 +192,7 @@ public class TestMapMatching {
 			//import the data from database;
 			stmt = con.createStatement();
 			//get max suid
-			String sql="select suid from " + Common.ValidSampleTable +" where suid<1500 group by suid";
+			String sql="select suid from " + Common.ValidSampleTable +" where suid<2000 group by suid";
 			//String sql="select suid from " + sample_table +" group by suid order by suid";
 			System.out.println(sql);
 			rs = stmt.executeQuery(sql);
@@ -208,7 +222,7 @@ public class TestMapMatching {
 			//提取同一辆车的有效轨迹点,按时间排序
 			//import the data from database;
 			stmt = con.createStatement();
-			sql="select * from " + Common.ValidSampleTable + " where suid < 1500 order by utc;";// + " and ostdesc not like '%定位无效%' order by utc";
+			sql="select * from " + Common.ValidSampleTable + " where suid < 2000 order by utc;";// + " and ostdesc not like '%定位无效%' order by utc";
 			Common.logger.debug(sql);
 			rs = stmt.executeQuery(sql);
 			//int count = 0;
@@ -220,8 +234,8 @@ public class TestMapMatching {
 					offline_gid[temp_id] = new ArrayList<Integer>();
 					online_gid[temp_id] = new ArrayList<Integer>();
 				}
-				taxi[temp_id].add(new Sample(rs.getLong("suid"), rs.getLong("utc"), rs.getLong("lat"), 
-	    		rs.getLong("lon"), (int)rs.getLong("head"), rs.getLong("speed"), rs.getLong("distance")));
+				taxi[temp_id].add(new Sample("_2010_03_01", rs.getLong("suid"), rs.getLong("utc"), rs.getLong("lat"), 
+	    		rs.getLong("lon"), (int)rs.getLong("head")));
 				//count++;
 				//System.out.println(count + "\n");
 			}

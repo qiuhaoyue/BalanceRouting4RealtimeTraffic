@@ -17,20 +17,20 @@ import java.util.HashMap;
 import indi.zyu.realtraffic.common.Common;
 
 //to analyse quality of traffic
-public class TrafficAnalysis {
+public class RoadTrafficAnalysis {
 	//store speed of roads for a whole day
 	public  double[][] road_traffic = null;
 	public  int[]      traffic_counter = null;//traffic number for each period
 	public  double[]   average_speed = null;//average speed of all roads
 	private int[]      counter = null;
 	//average speed of roads in same class
-	public static  double[][] default_class_traffic = null;
+	public  double[][] default_class_traffic = null;
 	
 	private Connection con = null;
 	private Statement stmt = null;
 	
 	//for real-time traffic data
-	public TrafficAnalysis(String Date_Suffix, int class_id) throws SQLException{
+	public RoadTrafficAnalysis(String Date_Suffix, int class_id) throws SQLException{
 		int length = Common.roadlist.length;
 		road_traffic = new double[length][(int)Common.max_seg + 1];
 		traffic_counter = new int[(int)Common.max_seg + 1];
@@ -59,7 +59,7 @@ public class TrafficAnalysis {
 					int count = rs.getInt(1);
 					//table not exists, create it
 					if(count == 0){
-						Common.logger.debug("table analysed not exists");;
+						Common.logger.debug("table " + traffic_table + " does not exist");;
 					}
 				}
 				//read data
@@ -74,32 +74,41 @@ public class TrafficAnalysis {
 				}
 				else{
 					sql = "select * from " + traffic_table + " where class_id=" + class_id + ";";
+					//temp sql
+					/*sql = "select * from " + traffic_table + " where class_id=" 
+							+ class_id + " and is_sensed=true;";*/
+					
 				}
 				
 				rs = stmt.executeQuery(sql);
-				int[] class_id_counter = new int[350];
+				//int[] class_id_counter = new int[350];
 				while(rs.next()){
 					int gid = rs.getInt("gid");
-					int tmp_class_id = rs.getInt("class_id");
+					//int tmp_class_id = rs.getInt("class_id");
 					//Common.logger.debug(gid);
 					double speed = rs.getDouble("average_speed");
 					road_traffic[gid][i] = speed;
-					class_id_counter[class_id]++;
-					default_class_traffic[class_id][i] += speed;
 					if(speed > 0){
 						counter[gid]++;
+						/*class_id_counter[class_id]++;
+						default_class_traffic[class_id][i] += speed;*/
 					}
 					traffic_counter[i]++;
 					average_speed[i] += speed;
 				}
-				average_speed[i] /= traffic_counter[i];
+				if(traffic_counter[i] == 0){
+					average_speed[i] = 0;
+				}
+				else{
+					average_speed[i] /= traffic_counter[i];
+				}	
 				//get average speed of roads in same class
-				for(int j=0; j<class_id_counter.length; j++){
+				/*for(int j=0; j<class_id_counter.length; j++){
 					int counter = class_id_counter[j];
 					if(counter > 0){
 						default_class_traffic[j][i] /= counter;
 					}
-				}
+				}*/
 			}
 			catch (SQLException e) {
 			    e.printStackTrace();
@@ -118,8 +127,10 @@ public class TrafficAnalysis {
 		}
 	}
 	
+	
+	
 	//for offline traffic data, need to transform gid
-	public TrafficAnalysis(int seg) throws SQLException{
+	public RoadTrafficAnalysis(int seg) throws SQLException{
 		String time_table = "allroad_time_nonrush_";
 		String road_table = "oneway_test";
 		

@@ -10,8 +10,13 @@ import indi.zyu.realtraffic.common.Common;
 import java.awt.Color;
 import java.awt.Font;
 import java.awt.RenderingHints;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 
 import org.jfree.chart.ChartFactory;
@@ -33,6 +38,7 @@ import org.jfree.data.general.DatasetUtilities;
 
 public class Chart {
 	private static final String CHART_PATH = "/home/zyu/";
+	
 	
 	private static String normal_Date_Suffix = "_2016_07_22";
 	private static String speed2_Date_Suffix = "_2016_07_23";
@@ -61,24 +67,50 @@ public class Chart {
 		this.data = data;
 		this.rowKeys = rowKeys;
 		this.columnKeys = columnKeys;
+		
 	}
 	
 	public static void main(String[] args) throws SQLException { 
 		
-		Common.start_utc = 1265472000L;
-		Common.end_utc = 1265558400L;
-		Common.init(40000);
-		//Common.clear_travel_table("_2016_08_17");
+		Common.start_utc = 1270483200L;
+		Common.end_utc = 1270569600L;
+		//Common.init(40000);
+		//Common.init_traffic_table();
+		//Common.clear_travel_table("_2010_02_07");
 		//Common.clear_travel_table("");
-		Common.init_roadlist();//initialize roadlist
-		//showHistoryTraffic();
-		//compareWeekTraffic();
-		compareTrafficBySpeedClass();
-		compareTrafficBySpeed();
-		//compareTrafficByWindowSize2();
-		//compareMapMatching();
-		
+		//Common.init_roadlist();//initialize roadlist
+		//compare("_2010_03_04");
+		/*String[] date_list = {"_2010_02_01","_2010_02_02","_2010_02_03","_2010_02_04","_2010_02_05","_2010_02_07"
+				,"_2010_02_09","_2010_02_10","_2010_02_11","_2010_02_12","_2010_02_13","_2010_02_14","_2010_02_15"
+				,"_2010_02_16","_2010_02_17","_2010_02_18","_2010_02_19","_2010_02_20","_2010_02_21","_2010_02_22"
+				,"_2010_02_23","_2010_02_24","_2010_02_25","_2010_02_26","_2010_02_27","_2010_03_01","_2010_03_02"
+				,"_2010_03_03","_2010_03_04","_2010_03_05","_2010_03_06","_2010_03_07","_2010_03_08","_2010_03_09"
+				,"_2010_03_10","_2010_03_11"};*/
+		String[] date_list = {"_2010_04_14"};
+		/*for(int i=0; i<date_list.length; i++){
+			Common.clear_travel_table(date_list[i]);
+		}*/
+		//compare_all(date_list);
+		Common.clear_travel_table("_2010_04_14");
+		Common.logger.debug("all done.");
     }
+	
+	public static void compare_all(String[] date_list){
+		compareTrafficBySpeedClass(date_list);
+		compareInferAndSensed(date_list);
+		compareTotalTraffic(date_list);
+		compareTurningTraffic(date_list);
+		compareTrafficNumber(date_list);
+	}
+	
+	public static void compare(String date){
+		String[] temp_list = null;
+		temp_list[0] = date;
+		compareTrafficBySpeedClass(temp_list);
+		compareInferAndSensed(temp_list);
+		compareTotalTraffic(temp_list);
+		compareTurningTraffic(temp_list);
+	}
 	
 	public static void compareMapMatching(){
 		double[][] error_rate = {{0.1488865595653197,0.1285676406639444,0.11698409068635458,0.111594864542853,
@@ -100,7 +132,45 @@ public class Chart {
 		
 	}
 	
-	public static void compareTrafficBySpeedClass(){
+	public static void compareTurningTraffic(String[] date_list){
+		try {
+			int seg = (int)Common.max_seg;
+			double[][] traffic = new double[1][seg];
+			int[] turning_counter = new int[seg + 1];
+			for(int i=0; i<date_list.length; i++){
+				TurningTrafficAnalysis turning_analyzer = new TurningTrafficAnalysis(date_list[i]);
+				turning_analyzer.read_simple_turning();
+				for(int j=1; j<= seg; j++){
+					traffic[0][j-1] += turning_analyzer.average_time[j] * turning_analyzer.traffic_counter[j];
+					turning_counter[j] += turning_analyzer.traffic_counter[j];
+				}
+			}
+			for(int i=1; i<= seg; i++){
+				traffic[0][i-1] /= turning_counter[i];
+			}
+			String[] rowKeys = {"turning data"};
+			String[] columnKeys = new String[seg];
+			for(int i=1; i<= seg; i++){
+				columnKeys[i-1] = String.valueOf(i);
+			}
+			Chart chart = new Chart(traffic, rowKeys, columnKeys);
+			if(date_list.length == 1){
+				chart.makeLineAndShapeChart("turning_time" + date_list[0] + ".png");
+				output(traffic, CHART_PATH + "data_turning_time" + date_list[0]);
+			}
+			else{
+				chart.makeLineAndShapeChart("turning_time_all" + ".png");
+				output(traffic, CHART_PATH + "data_turning_time_all");
+			}	
+			
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+	}
+	
+	public static void compareTrafficBySpeedClass(String[] date_list){
 		int gid = 195980;
 		//int gid = 203888;
 		try {
@@ -110,57 +180,54 @@ public class Chart {
 			int primary_id = 106;
 			int secondary_id = 108;
 			int tertiary_id = 109;
-			TrafficAnalysis trunk_analyzer = new TrafficAnalysis("_2010_02_07", trunk_id);
-			TrafficAnalysis primary_analyzer = new TrafficAnalysis("_2010_02_07", primary_id);
-			TrafficAnalysis secondary_analyzer = new TrafficAnalysis("_2010_02_07", secondary_id);
-			TrafficAnalysis tertiary_analyzer = new TrafficAnalysis("_2010_02_07", tertiary_id);
-		
-			//TrafficAnalysis offline_analyzer = new TrafficAnalysis(seg);
-			
-			
 			int seg = (int)Common.max_seg;
-			//TrafficAnalysis offline_analyzer = new TrafficAnalysis(seg);
 			
-			//double[][] traffic = new double[3][(int)Common.max_seg];
 			double[][] traffic = new double[4][seg];
-			int total_traffic = 0;
-			for(int i=1; i<= seg; i++){
-				//traffic[0][i-1] = normal_analyzer.average_speed[i+144];
-			//	traffic[0][i-1] = normal_analyzer.road_traffic[gid][i+144];
-				//traffic[0][i-1] = normal_analyzer.road_traffic[gid][i];
-				traffic[0][i-1] = trunk_analyzer.average_speed[i];
-				traffic[1][i-1] = primary_analyzer.average_speed[i];
-				traffic[2][i-1] = secondary_analyzer.average_speed[i];
-				traffic[3][i-1] = tertiary_analyzer.average_speed[i];
-				//total_traffic += normal_analyzer.traffic_counter[i];
-				//Common.logger.debug(total_traffic);
-			}
-			//Common.logger.debug("total traffic number: " + total_traffic);
+			int[] trunk_traffic_counter = new int[seg + 1];
+			int[] primary_traffic_counter = new int[seg + 1];
+			int[] secondary_traffic_counter = new int[seg + 1];
+			int[] tertiary_traffic_counter = new int[seg + 1];
 			
-			//caculate error rate
-			/*for(int i=1; i<= seg; i++){
-				int counter = 0;
-				for(int j=1; j< Common.roadlist.length; j++){
-					if(normal_analyzer.road_traffic[j][i+144] * offline_analyzer.road_traffic[j][i] >0){
-						counter++;
-						//double error_rate = normal_analyzer.road_traffic[j][i+144] - offline_analyzer.road_traffic[j][i];
-						//error_rate /= offline_analyzer.road_traffic[j][i];
-						//traffic[0][i-1] += error_rate;
-					}
+			for(int i=0; i<date_list.length; i++){
+				String date = date_list[i];
+				RoadTrafficAnalysis trunk_analyzer = new RoadTrafficAnalysis(date, trunk_id);
+				RoadTrafficAnalysis primary_analyzer = new RoadTrafficAnalysis(date, primary_id);
+				RoadTrafficAnalysis secondary_analyzer = new RoadTrafficAnalysis(date, secondary_id);
+				RoadTrafficAnalysis tertiary_analyzer = new RoadTrafficAnalysis(date, tertiary_id);
+				
+				int total_traffic = 0;
+				for(int j=1; j<= seg; j++){
+					traffic[0][j-1] += trunk_analyzer.average_speed[j] * trunk_analyzer.traffic_counter[j];
+					trunk_traffic_counter[j] += trunk_analyzer.traffic_counter[j];
+					traffic[1][j-1] += primary_analyzer.average_speed[j] * primary_analyzer.traffic_counter[j];
+					primary_traffic_counter[j] += primary_analyzer.traffic_counter[j];
+					traffic[2][j-1] += secondary_analyzer.average_speed[j] * secondary_analyzer.traffic_counter[j];
+					secondary_traffic_counter[j] += secondary_analyzer.traffic_counter[j];
+					traffic[3][j-1] += tertiary_analyzer.average_speed[j] * tertiary_analyzer.traffic_counter[j];
+					tertiary_traffic_counter[j] += tertiary_analyzer.traffic_counter[j];
 				}
-				traffic[0][i-1] += counter;
-			}*/
-			
-			//traffic[0] = analyzer.road_traffic[gid];
-			//String[] rowKeys = {"normal","2 times rate","4 times rate"};
-			//String[] rowKeys = {"real","offline"};
+			}
+			for(int i=1; i<= seg; i++){
+				traffic[0][i-1] /= trunk_traffic_counter[i];
+				traffic[1][i-1] /= primary_traffic_counter[i];
+				traffic[2][i-1] /= secondary_traffic_counter[i];
+				traffic[3][i-1] /= tertiary_traffic_counter[i];
+			}
 			String[] rowKeys = {"trunk","primary","secondary","tertiary"};
 			String[] columnKeys = new String[seg];
 			for(int i=1; i<= seg; i++){
 				columnKeys[i-1] = String.valueOf(i);
 			}
 			Chart chart = new Chart(traffic, rowKeys, columnKeys);
-			chart.makeLineAndShapeChart("week_0207.png");
+			if(date_list.length == 1){
+				chart.makeLineAndShapeChart("class" + date_list[0] + ".png");
+				output(traffic, CHART_PATH + "data_class" + date_list[0]);
+			}
+			else{
+				chart.makeLineAndShapeChart("class_all" + ".png");
+				output(traffic, CHART_PATH + "data_class_all");
+			}
+			
 			
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
@@ -168,40 +235,149 @@ public class Chart {
 		}
 	}
 	
-	public static void compareTrafficBySpeed(){
+	public static void compareInferAndSensed(String[] date_list){
 		int gid = 195980;
 		//int gid = 203888;
 		try {
 			//read traffic data from database
 			//int seg = 12;//12:00-13:00
-			int trunk_id = 104;
-			int primary_id = 106;
-			int secondary_id = 108;
-			int tertiary_id = 109;
-			TrafficAnalysis analyzer = new TrafficAnalysis("_2010_02_07", -1);		
-			
 			int seg = (int)Common.max_seg;
 			
 			//double[][] traffic = new double[3][(int)Common.max_seg];
-			double[][] traffic = new double[1][seg];
-			int total_traffic = 0;
-			for(int i=1; i<= seg; i++){
-				//traffic[0][i-1] = normal_analyzer.average_speed[i+144];
-			//	traffic[0][i-1] = normal_analyzer.road_traffic[gid][i+144];
-				//traffic[0][i-1] = normal_analyzer.road_traffic[gid][i];
-				traffic[0][i-1] = analyzer.average_speed[i];
-				//total_traffic += normal_analyzer.traffic_counter[i];
-				//Common.logger.debug(total_traffic);
-			}
-			//Common.logger.debug("total traffic number: " + total_traffic);
+			double[][] traffic = new double[2][seg];
 			
-			String[] rowKeys = {"0207"};
+			int sensed_traffic = 0;
+			int infer_traffic= 0;
+			int[] sensed_traffic_counter = new int[seg + 1];
+			int[] infer_traffic_counter = new int[seg + 1];
+			
+			for(int i=0; i<date_list.length; i++){
+				String date = date_list[i];
+				RoadTrafficAnalysis sensed_analyzer = new RoadTrafficAnalysis(date, -2);	
+				RoadTrafficAnalysis infer_analyzer = new RoadTrafficAnalysis(date, -3);
+				for(int j=1; j<= seg; j++){
+					traffic[0][j-1] += sensed_analyzer.average_speed[j] * sensed_analyzer.traffic_counter[j];
+					traffic[1][j-1] += infer_analyzer.average_speed[j] *  infer_analyzer.traffic_counter[j];
+					sensed_traffic += sensed_analyzer.traffic_counter[j];
+					sensed_traffic_counter[j] += sensed_analyzer.traffic_counter[j];
+					infer_traffic  += infer_analyzer.traffic_counter[j];
+					infer_traffic_counter[j] += infer_analyzer.traffic_counter[j];
+					//Common.logger.debug(total_traffic);
+				}
+			}
+			Common.logger.debug("sensed: " + sensed_traffic + "; inferred: " + infer_traffic);
+			for(int i=1; i<= seg; i++){
+				traffic[0][i-1] /= sensed_traffic_counter[i];
+				traffic[1][i-1] /= infer_traffic_counter[i];
+			}
+			
+			String[] rowKeys = {"sensed","inferred"};
 			String[] columnKeys = new String[seg];
 			for(int i=1; i<= seg; i++){
 				columnKeys[i-1] = String.valueOf(i);
 			}
 			Chart chart = new Chart(traffic, rowKeys, columnKeys);
-			chart.makeLineAndShapeChart("init_week_0207.png");
+			
+			if(date_list.length == 1){
+				chart.makeLineAndShapeChart("infer" + date_list[0] + ".png");
+				output(traffic, CHART_PATH + "data_infer" + date_list[0]);
+			}
+			else{
+				chart.makeLineAndShapeChart("infer_all" + ".png");
+				output(traffic, CHART_PATH + "data_infer_all");
+			}
+			
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public static void compareTotalTraffic(String[] date_list){
+		try {
+			//read traffic data from database
+			int seg = (int)Common.max_seg;
+			
+			double[][] traffic = new double[1][seg];
+			int total_traffic = 0;
+			int[] total_traffic_counter = new int[seg + 1];
+			
+			for(int i=0; i<date_list.length; i++){
+				String date = date_list[i];
+				RoadTrafficAnalysis analyzer = new RoadTrafficAnalysis(date, -1);
+				for(int j=1; j<= seg; j++){
+					traffic[0][j-1] += analyzer.average_speed[j] * analyzer.traffic_counter[j];
+					total_traffic += analyzer.traffic_counter[j];
+					total_traffic_counter[j] += analyzer.traffic_counter[j];
+					//Common.logger.debug(total_traffic);
+				}
+			}
+			
+			Common.logger.debug("total traffic number: " + total_traffic);
+			
+			for(int i=1; i<= seg; i++){
+				traffic[0][i-1] /= total_traffic_counter[i];
+			}
+			
+			String[] rowKeys = {"total"};
+			String[] columnKeys = new String[seg];
+			for(int i=1; i<= seg; i++){
+				columnKeys[i-1] = String.valueOf(i);
+			}
+			Chart chart = new Chart(traffic, rowKeys, columnKeys);
+			
+			if(date_list.length == 1){
+				chart.makeLineAndShapeChart("total" + date_list[0] + ".png");
+				output(traffic, CHART_PATH + "data_total" + date_list[0]);
+			}
+			else{
+				chart.makeLineAndShapeChart("total_all" + ".png");
+				output(traffic, CHART_PATH + "data_total_all");
+			}
+	
+			
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public static void compareTrafficNumber(String[] date_list){
+		try {
+			//read traffic data from database
+			int seg = (int)Common.max_seg;
+			
+			double[][] traffic = new double[1][seg];
+			int total_traffic = 0;
+			
+			for(int i=0; i<date_list.length; i++){
+				String date = date_list[i];
+				RoadTrafficAnalysis analyzer = new RoadTrafficAnalysis(date, -1);
+				for(int j=1; j<= seg; j++){
+					traffic[0][j-1] += analyzer.traffic_counter[j];
+					total_traffic += analyzer.traffic_counter[j];
+					//Common.logger.debug(total_traffic);
+				}
+			}
+			
+			Common.logger.debug("total traffic number: " + total_traffic);
+			
+			String[] rowKeys = {"total"};
+			String[] columnKeys = new String[seg];
+			for(int i=1; i<= seg; i++){
+				columnKeys[i-1] = String.valueOf(i);
+			}
+			Chart chart = new Chart(traffic, rowKeys, columnKeys);
+			
+			if(date_list.length == 1){
+				chart.makeLineAndShapeChart("counter" + date_list[0] + ".png");
+				output(traffic, CHART_PATH + "data_counter" + date_list[0]);
+			}
+			else{
+				chart.makeLineAndShapeChart("counter_all" + ".png");
+				output(traffic, CHART_PATH + "data_counter_all");
+			}
+	
 			
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
@@ -213,11 +389,11 @@ public class Chart {
 		try {
 			//read traffic data from database
 			
-			TrafficAnalysis window4_analyzer = new TrafficAnalysis(window4_Date_Suffix, -1);
-			TrafficAnalysis window6_analyzer = new TrafficAnalysis(window6_Date_Suffix, -1);
-			TrafficAnalysis window8_analyzer = new TrafficAnalysis(window8_Date_Suffix, -1);
-			TrafficAnalysis window10_analyzer = new TrafficAnalysis(window10_Date_Suffix, -1);
-			TrafficAnalysis window12_analyzer = new TrafficAnalysis(window12_Date_Suffix, -1);
+			RoadTrafficAnalysis window4_analyzer = new RoadTrafficAnalysis(window4_Date_Suffix, -1);
+			RoadTrafficAnalysis window6_analyzer = new RoadTrafficAnalysis(window6_Date_Suffix, -1);
+			RoadTrafficAnalysis window8_analyzer = new RoadTrafficAnalysis(window8_Date_Suffix, -1);
+			RoadTrafficAnalysis window10_analyzer = new RoadTrafficAnalysis(window10_Date_Suffix, -1);
+			RoadTrafficAnalysis window12_analyzer = new RoadTrafficAnalysis(window12_Date_Suffix, -1);
 			
 			int seg = (int)Common.max_seg;
 			//TrafficAnalysis offline_analyzer = new TrafficAnalysis(seg);
@@ -360,11 +536,11 @@ public class Chart {
 		try {
 			//read traffic data from database
 			
-			TrafficAnalysis window4_analyzer = new TrafficAnalysis(window4_Date_Suffix, -1);
-			TrafficAnalysis window6_analyzer = new TrafficAnalysis(window6_Date_Suffix, -1);
-			TrafficAnalysis window8_analyzer = new TrafficAnalysis(window8_Date_Suffix, -1);
-			TrafficAnalysis window10_analyzer = new TrafficAnalysis(window10_Date_Suffix, -1);
-			TrafficAnalysis window12_analyzer = new TrafficAnalysis(window12_Date_Suffix, -1);
+			RoadTrafficAnalysis window4_analyzer = new RoadTrafficAnalysis(window4_Date_Suffix, -1);
+			RoadTrafficAnalysis window6_analyzer = new RoadTrafficAnalysis(window6_Date_Suffix, -1);
+			RoadTrafficAnalysis window8_analyzer = new RoadTrafficAnalysis(window8_Date_Suffix, -1);
+			RoadTrafficAnalysis window10_analyzer = new RoadTrafficAnalysis(window10_Date_Suffix, -1);
+			RoadTrafficAnalysis window12_analyzer = new RoadTrafficAnalysis(window12_Date_Suffix, -1);
 			
 			int seg = (int)Common.max_seg;
 			//TrafficAnalysis offline_analyzer = new TrafficAnalysis(seg);
@@ -577,9 +753,9 @@ public class Chart {
 			TrafficAnalysis week_0202_analyzer = new TrafficAnalysis(week0202_Date_Suffix);
 			TrafficAnalysis week_0203_analyzer = new TrafficAnalysis(week0203_Date_Suffix);
 			TrafficAnalysis week_0204_analyzer = new TrafficAnalysis(week0204_Date_Suffix);*/
-			TrafficAnalysis week_0205_analyzer = new TrafficAnalysis(week0205_Date_Suffix, -1);
-			TrafficAnalysis week_0207_analyzer = new TrafficAnalysis(week0207_Date_Suffix, -1);
-			TrafficAnalysis week_0208_analyzer = new TrafficAnalysis(week0208_Date_Suffix, -1);
+			RoadTrafficAnalysis week_0205_analyzer = new RoadTrafficAnalysis(week0205_Date_Suffix, -1);
+			RoadTrafficAnalysis week_0207_analyzer = new RoadTrafficAnalysis(week0207_Date_Suffix, -1);
+			RoadTrafficAnalysis week_0208_analyzer = new RoadTrafficAnalysis(week0208_Date_Suffix, -1);
 			
 			
 			int seg = (int)Common.max_seg;
@@ -621,7 +797,7 @@ public class Chart {
 	public void makeLineAndShapeChart(String file_name){  
 	        //CategoryDataset dataset = getBarData(data, rowKeys, columnKeys);  
 	        CategoryDataset dataset = DatasetUtilities.createCategoryDataset(rowKeys, columnKeys, data);
-	        createTimeXYChar("traffic-0207", 
+	        createTimeXYChar("traffic", 
 	        		"xÖá", "yÖá", dataset, file_name); 
 	}
 	
@@ -741,7 +917,7 @@ public class Chart {
 		int gid = 2;
 		try {
 			//read traffic data from database
-			TrafficAnalysis history_analyzer = new TrafficAnalysis("", -1);		
+			RoadTrafficAnalysis history_analyzer = new RoadTrafficAnalysis("", -1);		
 			int seg = (int)Common.max_seg;
 			//TrafficAnalysis offline_analyzer = new TrafficAnalysis(seg);
 			
@@ -769,5 +945,21 @@ public class Chart {
 			e.printStackTrace();
 		}
 		
+	}
+	//write data to file to show in matlab
+	public static void output(double[][] data, String path){
+		try {
+			FileOutputStream out = new FileOutputStream(new File(path));
+			for(int i=0; i< data.length; i++){
+				for(int j=0; j< data[i].length; j++){
+					out.write(String.valueOf(data[i][j]).getBytes());
+					out.write(" ".getBytes());
+				}
+				out.write("\r\n".getBytes());
+			}
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 }

@@ -4,6 +4,7 @@ import indi.zyu.realtraffic.common.Common;
 import indi.zyu.realtraffic.gps.Sample;
 import indi.zyu.realtraffic.process.TaxiInfo;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -18,20 +19,28 @@ import java.text.SimpleDateFormat;
 
 public class RealTravelTime {
 
+	private static Connection con = null;
+	private static Statement stmt = null;
+	private static ResultSet rs = null;
+	private static String SamplePath = "/mnt/freenas/taxi_data/0407~0430/";
 	/**
 	 * @param args
 	 * @throws SQLException 
 	 * @throws InterruptedException 
 	 */
 	public static void main(String[] args) throws SQLException, InterruptedException {
-		Connection con = null;
-    	Statement stmt = null;
-		ResultSet rs = null;
 		
 		Common.logger.debug("start!");
-		SimpleDateFormat tempDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");	
+		
 		//Common.Date_Suffix = (new SimpleDateFormat("_yyyy_MM_dd")).format(new java.util.Date());
-		Common.Date_Suffix ="_2010_04_06";
+		String[] date_list = {"_2010_04_13","_2010_04_14"};
+		
+		Common.is_restore = false;
+		//Common.restore_date = "_2010_04_13";
+		
+		
+		Common.init(40000);//initialize map, matchers and process thread
+		Common.init_roadlist();//initialize roadmap and initial state
 		
 		try{
 			con = Common.getConnection();
@@ -40,106 +49,172 @@ public class RealTravelTime {
 				return;
 			}
 			stmt = con.createStatement();
-			String sql = "select min(utc),max(utc) from " + Common.ValidSampleTable + ";";
-			rs = stmt.executeQuery(sql);
-			if(rs.next()){
-				Common.start_utc = rs.getLong(1);
-				Common.end_utc = rs.getLong(2);
+				
+			for(int i=0; i< date_list.length; i++){		
+				Common.logger.debug("start to process data from " + date_list[i]);
+				//if you need to restore, you should set start_counter to control where to start
+				data_emission(date_list[i], -1);
+				
+				//Common.store(date_list[i]);
 			}
 			
-			Common.logger.debug("start utc: " + Common.start_utc + "; end utc: " + Common.end_utc);
-		}
-		catch (SQLException e) {
-		    e.printStackTrace();
-		    con.rollback();
-		}
-		
-		Common.init(40000);
-		//clear previous travel table 
-		//Common.clear_travel_table("_2016_08_19");
-		
-
-    	String start_time = tempDate.format(new java.util.Date());
-    	Common.logger.debug("-----Real travel time process start:	"+start_time+"-------!");
-    	Common.logger.debug("-----get road info:	-------!");
-    	
-    	//Common.change_scheme_roadmap(Common.OriginWayTable);//add some column
-    	Common.init_roadlist();//initialize roadlist
-
-    	Common.logger.debug("-----start simulate gps point:	-------!");
-    	
-		int counter = Common.emission_step * Common.emission_multiple;//to control generate rate
-		try {
-					
-			String sql = "select * from " + Common.ValidSampleTable + " order by utc;"; //+ " limit 5000;";
-			//String sql = "select * from " + Common.SingleSampleTable + " limit 2000";
-			Common.logger.debug(sql);
-    		rs = stmt.executeQuery(sql);
-    		
-    		Common.logger.debug("select finished");
-    		
-    		//start process gps point
-    		while(rs.next()){
-    			//counter += 5;
-    			long utc = rs.getLong("utc");
-    			//to control data emission speed
-    			long interval = utc - Common.start_utc;
-    			
-    			//wait until utc of gps is in the time range
-    			while(interval >= counter){
-					counter += Common.emission_step * Common.emission_multiple;
-    				Thread.sleep(Common.emission_step * 1000);
-    				//Common.logger.debug("Date: " + gps.utc);
-    				Common.logger.debug("time: " + counter);
+			Thread.sleep(10*60*1000);
+			
+			//flush updater records
+			Common.real_traffic_updater.update_all_batch();
+			Common.history_traffic_updater.update_all_batch();
+			
+			//print change rate of traffic
+			/*double[][] average_rate = new double[1][Common.max_seg + 1];
+			for(int i=1; i<=Common.max_seg; i++){
+				int counter = 0;
+				double counter_rate = 0.0;
+				for(double rate:Common.change_rate[i]){
+					if(rate > 0){
+						counter_rate += rate;
+						counter++;
+					}
 				}
-    			//utc of gps is in the time range, process the point
-    			Sample gps = new Sample(rs.getLong("suid"), rs.getLong("utc"), rs.getLong("lat"), 
-    		    		rs.getLong("lon"), (int)rs.getLong("head"), rs.getLong("speed"), rs.getLong("distance"));
-    			
-    			int suid = (int) gps.suid;
-    			if(Common.taxi[suid] == null){
-    				Common.taxi[suid] = new TaxiInfo();
-    				int number = suid % Common.thread_number;
-    				Common.thread_pool[number].put_suid(suid);
-    			}
-    			Common.taxi[suid].add_gps(gps);
-    			
-    		}
-    		//wait for all gps point processed
-    		Thread.sleep(100 * 1000);
-    		
-    		//flush all traffic to simulate a new day
-    		for(int i=0;i<Common.roadlist.length;i++){
-    		    Common.roadlist[i].flush();
-    		}
+				average_rate[0][i] = counter_rate / counter;
+				Common.logger.debug("average change rate: " + i + ":" + average_rate[0][i]);
+			}
+			
+			Chart.output(average_rate, "/home/zyu/change_rate");*/
+			Common.logger.debug("all done.");
+			
 		}
-		catch (SQLException e) {
+		catch (Exception e) {
 		    e.printStackTrace();
 		    Common.logger.error("generate gps point error!");
-		    con.rollback();
+		    //con.rollback();
 		}
-		/*catch (InterruptedException e) {
-		    e.printStackTrace();
-		    con.rollback();
-		}*/
 		finally{
 			con.commit();
 		}
-		//wait until all thread has finished
-		/*while(true){
-			if (Common.thread_counter.get() == 0){
-				break;
+	}
+	
+	public static void data_emission(String date, int start_counter) throws SQLException, InterruptedException{
+		//drop table if exists
+		String sql = "";
+		try{
+			sql = "drop table if exists " + Common.ValidSampleTable + ";";
+			stmt.executeUpdate(sql);
+		}
+		catch (SQLException e) {
+		    e.printStackTrace();
+		    con.rollback();
+		}
+		finally{
+			con.commit();
+		}
+		
+		//import sample table
+		try{
+			import_table(SamplePath + "valid" + date);
+		}
+		catch(Exception e){
+			Common.logger.debug("import sample data failed");
+		}
+		
+		
+		sql = "select min(utc),max(utc) from " + Common.ValidSampleTable + ";";
+		rs = stmt.executeQuery(sql);
+		if(rs.next()){
+			Common.start_utc = rs.getLong(1);
+			Common.end_utc = rs.getLong(2);
+		}
+		Common.logger.debug(date + " start utc: " + Common.start_utc + "; end utc: " + Common.end_utc);
+		
+		//create traffic table
+		Common.Date_Suffix = date;
+		//Common.real_traffic_updater.create_traffic_table("_2010_04_13");
+		Common.init_traffic_table();
+				
+		//clear previous travel table 
+		//Common.clear_travel_table("_2010_02_07");
+		
+		SimpleDateFormat tempDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");	
+		String start_time = tempDate.format(new java.util.Date());
+    	Common.logger.debug("-----Real travel time process start:	"+start_time+"-------!");
+		
+		Common.logger.debug("-----start simulate gps point:	-------!");
+		int counter;//to control generate rate
+    	if(start_counter == -1){
+    		counter = Common.emission_step * Common.emission_multiple;
+    	}
+    	else{
+    		counter = start_counter;
+    	}
+    	//whole day
+    	//sql = "select * from " + Common.ValidSampleTable + " where ostdesc like '%ÖØ³µ%' order by utc;";
+    	sql = "select * from " + Common.ValidSampleTable + " order by utc;";
+    	//start from 12:00
+    	/*sql = "select * from " + Common.ValidSampleTable + " where utc > " 
+    			+ (Common.start_utc + 86400/2) + " order by utc;";*/
+    	
+		Common.logger.debug(sql);
+		rs = stmt.executeQuery(sql);
+		
+		Common.logger.debug("select finished");
+		
+		//boolean store_flag = false;
+		//start process gps point
+		while(rs.next()){
+			long utc = rs.getLong("utc");
+			//to control data emission speed
+			long interval = utc - Common.start_utc;
+			
+			//wait until utc of gps is in the time range
+			while(interval >= counter){
+				counter += Common.emission_step * Common.emission_multiple;
+				Thread.sleep(Common.emission_step * 1000);
+				Common.logger.debug("time: " + counter);
 			}
-			Thread.sleep(10000);
-		}*/
+			
+			//utc of gps is in the time range, process the point
+			Sample gps = new Sample(date, rs.getLong("suid"), rs.getLong("utc"), rs.getLong("lat"), 
+		    		rs.getLong("lon"), (int)rs.getLong("head"));
+			
+			int suid = (int) gps.suid;
+			if(Common.taxi[suid] == null){
+				Common.taxi[suid] = new TaxiInfo();
+				int number = suid % Common.thread_number;
+				Common.thread_pool[number].put_suid(suid);
+			}
+			Common.taxi[suid].add_gps(gps);
+			
+			//store at 12:00
+			/*if(interval >= 86400/2 && store_flag == false){
+				//Thread.sleep(10*60*1000);
+				//Common.store(date);
+				store_flag = true;
+				break;
+			}*/
+			
+		}
+		
 		
 		String end_time = tempDate.format(new java.util.Date());
 
     	Common.logger.debug("-----Real travel time process finished:	"+end_time+"-------!");
     	Common.logger.debug("process time: " + start_time + " - " + end_time + "counter: " + counter);
-
-    	//Common.logger.debug("same road estimation: " + Common.same_road_count.get());
-    	//Common.logger.debug("diff road estimation: " + Common.diff_road_count.get());
+    	
 	}
+	
+	//import sample table from file
+	public static void import_table(String filePath)   
+	        throws IOException, InterruptedException {  
+		//psql  -f ./valid_2010_04_07.sql "dbname=taxi_data user=postgres password=***"
+	    String[] shell_string = {"/bin/sh", "-c", "psql  -f " + filePath + ".sql" + " 'dbname=" + Common.DataBase 
+	    		+ " user=" + Common.UserName + " password=" + Common.UserPwd + "'"};
+	    Common.logger.debug("import table start");
+	    //Process process = Runtime.getRuntime().exec(shell_string);
+	    Runtime.getRuntime().exec(shell_string); 
+	    //subprocess maybe blocked or dead lock happens and do not resturn, so need to set a timeout()
+	    //the problem can be solved by http://blog.csdn.net/ericahdu/article/details/5848868, but inconvenient
+	    Thread.sleep(30 * 60 * 1000);
+	    //int exitValue = process.wait(30 * 60 * 1000);
+	    //return exitValue;
+	}  
 	
 }

@@ -115,7 +115,7 @@ public class GPSUpdater {
 				stmt.addBatch(sql);
 			}
 			stmt.executeBatch();
-			Common.logger.debug("gps updater insert!");
+			//Common.logger.debug("gps updater insert!");
 		}
 		catch (SQLException e) {
 			// TODO Auto-generated catch block

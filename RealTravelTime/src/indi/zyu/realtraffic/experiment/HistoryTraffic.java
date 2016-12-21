@@ -40,7 +40,7 @@ public class HistoryTraffic {
 	//use week data to generate default road speed
 	public static void generate_history_traffic(){
 		try{
-			TrafficAnalysis week_0201_analyzer = new TrafficAnalysis(week0201_Date_Suffix,108);
+			RoadTrafficAnalysis week_0201_analyzer = new RoadTrafficAnalysis(week0201_Date_Suffix,108);
 			/*TrafficAnalysis week_0202_analyzer = new TrafficAnalysis(week0202_Date_Suffix);
 			TrafficAnalysis week_0203_analyzer = new TrafficAnalysis(week0203_Date_Suffix);
 			TrafficAnalysis week_0204_analyzer = new TrafficAnalysis(week0204_Date_Suffix);
