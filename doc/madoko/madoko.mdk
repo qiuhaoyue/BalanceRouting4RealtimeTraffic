@@ -268,6 +268,12 @@ Doc class     : [10pt]article
 
 [map-matching_new]: images/map-matching_new.png "map-matching_new" { width:auto; max-width:90% }
 
+新图：修正了程序中没有利用到点之间时间信息的错误，并调整了选择路由时的一些参数。
+
+![map_matching_new2]
+
+[map_matching_new2]: images/map_matching_new2.png "map_matching_new2" { width:auto; max-width:90% }
+
 
  OHMMM论文中对匹配精确度的实验
 ![matching2]
@@ -534,6 +540,25 @@ exp>real: 557
 80%-90%: 1 轨迹3 匹配？路由？
 
 280%-290%: 1  轨迹1 匹配错误（轨迹短，匹配错误率变高）
+
+## 4.7 OHMMM讨论 {-}
+
+barefoot库中的实现：
+
+计算转移概率时考虑路由长度，选择路由时计算一个边界值，在边界值之内选取路由。
+bound =Math.max(1000d, Math.min(distance, ((candidates.one().time() - predecessors.one()
+                        .time()) / 1000) * 33))
+
+边界值最小值为1000，最大15000，假定最大行驶速度33（原值为100），修正错误后路由最大深度提高，
+路由选择变多，耗时增加，为减少耗时，并考虑实际匹配情况，将候选道路的选择半径从200降为100m。
+
+转移概率计算：
+
+double beta = lambda == 0 ? (2.0 * Math.max(1d, candidates.one().time()- predecessors.one().time()) / 1000) : 1 / lambda;
+
+double transition =(1 / beta)* Math.exp((-1.0)* Math.max(0, route.cost(new TimePriority()) - base)/ beta);
+
+时间间隔越大，beta越小，各个候选道路之间的转移概率相差越小；路由花费越大，转移概率越小。
 
 # 5. 相关工作调研 {-}
 
