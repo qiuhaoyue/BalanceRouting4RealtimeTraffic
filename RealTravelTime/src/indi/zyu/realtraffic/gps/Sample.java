@@ -31,26 +31,41 @@ public class Sample implements Comparable<Sample>{
 	public int pre_gid;
 	public double pre_offset;
 	
-	public int passenager; //0 has no passenger and 1 has passenager
+	public boolean passenager; //false has no passenger and true has passenager
 	
-	public Sample(String date, long suid, long utc, long lat, long lon, int head){
+	public Sample(String date, long suid, long utc, long lat, long lon, int head, boolean passenager){
 		this.date = date;
 		this.suid=suid;
 		this.utc=new Date(utc*1000L);
 		this.lat=lat/100000.0;
 		this.lon=lon/100000.0;
 		this.head=head;
+		this.passenager = passenager;
 		this.min_matching_distance=-1.0;
 		this.stop=0;
 		this.moving_distance=-1;
 	}
 	
-	public Sample(long suid, long utc, double lat, double lon, int head){
+	public Sample(String date, long suid, long utc, double lat, double lon, int head, boolean passenager){
+		this.date = date;
 		this.suid=suid;
 		this.utc=new Date(utc*1000L);
 		this.lat=lat;
 		this.lon=lon;
 		this.head=head;
+		this.passenager = passenager;
+		this.min_matching_distance=-1.0;
+		this.stop=0;
+		this.moving_distance=-1;
+	}
+	
+	public Sample(long suid, long utc, double lat, double lon, int head, boolean passenager){
+		this.suid=suid;
+		this.utc=new Date(utc*1000L);
+		this.lat=lat;
+		this.lon=lon;
+		this.head=head;
+		this.passenager = passenager;
 		this.min_matching_distance=-1.0;
 		this.stop=0;
 		this.moving_distance=-1;
@@ -81,7 +96,8 @@ public class Sample implements Comparable<Sample>{
 		TimeZone zone=TimeZone.getTimeZone("GMT+8");
 		format.setTimeZone(zone);
 		output+=format.format(this.utc)+")	";		
-		output+="lat:" + lat + ",lon:" + lon;		
+		output+="lat:" + lat + ",lon:" + lon;	
+		output+=",gid:" + gid;
 		return output;
 	}
 	public String getAttributeForInsert(){

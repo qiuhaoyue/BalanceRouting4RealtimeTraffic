@@ -233,6 +233,65 @@ public class KState<C extends StateCandidate<C, T, S>, T extends StateTransition
 
         assert (k < 0 || sequence.size() <= k + 1);*/
     }
+    
+    public void update2(Set<C> vector, S sample) {
+        if (vector.isEmpty()) {
+            return;
+        }
+
+        if (!sequence.isEmpty() && sequence.peekLast().two().time() > sample.time()) {
+            throw new RuntimeException("out-of-order state update is prohibited");
+        }
+
+        for (C candidate : vector) {
+            counters.put(candidate, 0);
+            if (candidate.predecessor() != null) {
+                if (!counters.containsKey(candidate.predecessor())
+                        || !sequence.peekLast().one().contains(candidate.predecessor())) {
+                    throw new RuntimeException("Inconsistent update vector.");
+                }
+                counters.put(candidate.predecessor(), counters.get(candidate.predecessor()) + 1);
+            }
+        }
+
+        if (!sequence.isEmpty()) {
+            Set<C> deletes = new HashSet<C>();
+            C estimate = null;
+
+            for (C candidate : sequence.peekLast().one()) {
+                if (estimate == null || candidate.seqprob() > estimate.seqprob()) {
+                    estimate = candidate;
+                }
+                if (counters.get(candidate) == 0) {
+                    deletes.add(candidate);
+                }
+            }
+
+            int size = sequence.peekLast().one().size();
+
+            for (C candidate : deletes) {
+                if (deletes.size() != size || candidate != estimate) {
+                    remove(candidate, sequence.size() - 1);
+                }
+            }
+        }
+
+        sequence.add(new Tuple<Set<C>, S>(vector, sample));
+
+        while ((t > 0 && sample.time() - sequence.peekFirst().two().time() > t)
+                || (k >= 0 && sequence.size() > k + 1)) {
+            Set<C> deletes = sequence.removeFirst().one();
+            for (C candidate : deletes) {
+                counters.remove(candidate);
+            }
+
+            for (C candidate : sequence.peekFirst().one()) {
+                candidate.predecessor(null);
+            }
+        }
+
+        assert (k < 0 || sequence.size() <= k + 1);
+    }
 
     protected void remove(C candidate, int index) {
         Set<C> vector = sequence.get(index).one();

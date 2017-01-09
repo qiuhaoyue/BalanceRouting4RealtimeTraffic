@@ -44,8 +44,8 @@ public class Common {
 	static String Host     = "localhost";
 	static int Port        = 5432;
 	
-	public static String UserName = "secret";
-	public static String UserPwd  = "secret";
+	public static String UserName = "postgres";
+	public static String UserPwd  = "p@ssw0rd";
 	public static String DataBase = "taxi_data";
 	
 	public static String OriginWayTable = "ways";

@@ -25,6 +25,7 @@ import com.bmwcarit.barefoot.roadmap.RoadPoint;
  */
 public class MatcherCandidate extends StateCandidate<MatcherCandidate, MatcherTransition, MatcherSample> {
     private final RoadPoint point;
+    private final String matching_id;
 
     /**
      * Creates a matching candidate.
@@ -32,7 +33,8 @@ public class MatcherCandidate extends StateCandidate<MatcherCandidate, MatcherTr
      * @param point {@link RoadPoint} object that is point on the map represented by matching
      *        candidate.
      */
-    public MatcherCandidate(RoadPoint point) {
+    public MatcherCandidate(RoadPoint point, String matching_id) {
+    	this.matching_id = matching_id;
         this.point = point;
     }
 
@@ -49,6 +51,7 @@ public class MatcherCandidate extends StateCandidate<MatcherCandidate, MatcherTr
             throws JSONException {
         super(json, factory);
         point = RoadPoint.fromJSON(json.getJSONObject("point"), map);
+        matching_id = "0";
     }
 
     /**
@@ -60,6 +63,15 @@ public class MatcherCandidate extends StateCandidate<MatcherCandidate, MatcherTr
         return point;
     }
 
+    /**
+     * Gets identifier of matching candidate. add by zyu
+     *
+     * @return origin id of matching sample.
+     */
+    public String matching_id() {
+        return matching_id;
+    }
+    
     @Override
     public JSONObject toJSON() throws JSONException {
         JSONObject json = super.toJSON();

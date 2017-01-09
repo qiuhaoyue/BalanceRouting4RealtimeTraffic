@@ -38,7 +38,7 @@ public class TestTravelTime {
 	private static long start_time_bound = 1271174400 + 6*60*60;
 	private static long end_time_bound = 1271260800 - 1*60*60;
 	private static long period_thresold = 10 * 60;//min travel time for test
-	private static int  min_sample_number = 5;
+	private static int  min_sample_number = 7;
 	private static int  max_route_number = 15;
 	private static String date="_2010_04_14";
 	
@@ -109,8 +109,7 @@ public class TestTravelTime {
 					}
 					else{
 						error_rate_list.add(error_rate);
-					}
-					
+					}				
 				}
 			}
 			
@@ -247,18 +246,9 @@ public class TestTravelTime {
 				/*System.out.println(lat + "; " + lon + "; " + high + "; " 
 						+ direct + "; " + speed + "; " + time);*/
 				trajectory[id].add(new Sample((long)suid, (long)utc, lat, 
-			    		lon, (int)head));
+			    		lon, (int)head, true));
 			}
 		}
-		//print for test
-		/*for(int i=0; i<trajectory.length; i++){
-			if(trajectory[i] != null){
-				System.out.println("suid: " + i);
-				for(Sample sample:trajectory[i]){
-					System.out.println(sample.toString());
-				}
-			}
-		}*/
 	}
 	
 	//select samples in region
@@ -290,7 +280,7 @@ public class TestTravelTime {
 		double error_rate = 0.0;
 		KState<MatcherCandidate, MatcherTransition, MatcherSample> state = 
 				new KState<MatcherCandidate, MatcherTransition, 
-				MatcherSample>(20, -1);
+				MatcherSample>(6, -1);
 		Sample pre_sample = null;//to avoid stop point
 		Sample cur_sample = null;
 		Sample pre_converge = null;
@@ -303,30 +293,33 @@ public class TestTravelTime {
 		ArrayList<Sample>  old_sample_list = new ArrayList<Sample>();
 		ArrayList<Sample>  new_sample_list = new ArrayList<Sample>();
 		int counter = 0;
-		int pos=0;
+		
 		Common.logger.debug("start to map matching");
+		
 		for(int i=0; i<sample_list.size(); i++){
 			cur_sample = sample_list.get(i);
 			//stop point, ignore it
 			if(pre_sample != null && cur_sample.lat == pre_sample.lat && cur_sample.lon == pre_sample.lon){
 				continue;
 			}
-			MatcherSample matcher_sample = new MatcherSample(String.valueOf(cur_sample.suid), 
-					cur_sample.utc.getTime()/1000, new Point(cur_sample.lon, cur_sample.lat));
+			MatcherSample matcher_sample = new MatcherSample(String.valueOf(i), 
+					cur_sample.utc.getTime(), new Point(cur_sample.lon, cur_sample.lat));
 			Set<MatcherCandidate> vector = Common.matcher.execute(state.vector(), state.sample(),
 		    		matcher_sample);
 			MatcherCandidate converge = state.update_converge(vector, matcher_sample);
+			
 			pre_sample = cur_sample;
 			if(converge == null){
 				continue;
 			}
 			else{
-				Sample tmp_sample = sample_list.get(pos);
+				int converge_id = Integer.parseInt(converge.matching_id());
+				Sample tmp_sample = sample_list.get(converge_id);
 				
 				//correct gps location
 				Point position = converge.point().geometry(); // position
 				Sample new_sample = new Sample(tmp_sample.suid, tmp_sample.utc.getTime()/1000, position.getY(), 
-						position.getX(), tmp_sample.head);
+						position.getX(), tmp_sample.head, true);
 				
 				//stop point
 				if(pre_converge != null && new_sample.lat == pre_converge.lat && new_sample.lon == pre_converge.lon){
@@ -348,12 +341,6 @@ public class TestTravelTime {
 					start_offset = offset;
 					start_time = tmp_sample.utc.getTime()/1000;
 				}
-				
-				
-				//check interval
-				/*if(pre_converge != null){
-					double interval = 
-				}*/
 				
 				//get route
 				if(converge.transition() != null){
@@ -385,7 +372,6 @@ public class TestTravelTime {
 				gid_list.add(gid);
 				seq_list.add(seq);
 				counter++;
-				pos++;
 				
 				//record last point
 				end_offset = offset;

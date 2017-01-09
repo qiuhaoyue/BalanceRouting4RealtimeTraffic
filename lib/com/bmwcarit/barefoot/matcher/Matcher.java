@@ -61,8 +61,8 @@ public class Matcher extends Filter<MatcherCandidate, MatcherTransition, Matcher
     private double sig2 = Math.pow(5d, 2);
     private double sqrt_2pi_sig2 = Math.sqrt(2d * Math.PI * sig2);
     private double lambda = 0d;
-    private double radius = 200;
-    //private double radius = 100;
+    //private double radius = 200;
+    private double radius = 100;
     private double distance = 15000;
 
     /**
@@ -195,7 +195,8 @@ public class Matcher extends Filter<MatcherCandidate, MatcherTransition, Matcher
             double dz = spatial.distance(sample.point(), point.geometry());
             double emission = 1 / sqrt_2pi_sig2 * Math.exp((-1) * dz / (2 * sig2));
 
-            MatcherCandidate candidate = new MatcherCandidate(point);
+            MatcherCandidate candidate = new MatcherCandidate(point, sample.id());
+            
             candidates.add(new Tuple<MatcherCandidate, Double>(candidate, emission));
 
             logger.trace("{} {} {}", candidate.id(), dz, emission);
@@ -240,7 +241,7 @@ public class Matcher extends Filter<MatcherCandidate, MatcherTransition, Matcher
                 1.0 * spatial.distance(predecessors.one().point(), candidates.one().point()) / 60;
         final double bound =
                 Math.max(1000d, Math.min(distance, ((candidates.one().time() - predecessors.one()
-                        .time()) / 1000) * 100));
+                        .time()) / 1000) * 33));//modified by zyu, decrease max speed from 100m/s to 33m/s
 
         InlineScheduler scheduler = StaticScheduler.scheduler();
         for (final MatcherCandidate predecessor : predecessors.two()) {

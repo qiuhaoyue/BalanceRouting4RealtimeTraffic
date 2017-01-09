@@ -1,6 +1,7 @@
 package indi.zyu.realtraffic.main;
 
 import indi.zyu.realtraffic.common.Common;
+import indi.zyu.realtraffic.experiment.Chart;
 import indi.zyu.realtraffic.gps.Sample;
 import indi.zyu.realtraffic.process.TaxiInfo;
 
@@ -33,7 +34,10 @@ public class RealTravelTime {
 		Common.logger.debug("start!");
 		
 		//Common.Date_Suffix = (new SimpleDateFormat("_yyyy_MM_dd")).format(new java.util.Date());
-		String[] date_list = {"_2010_04_13","_2010_04_14"};
+		String[] date_list = {"_2010_04_07", "_2010_04_08", "_2010_04_09", "_2010_04_10", "_2010_04_11",
+				"_2010_04_12", "_2010_04_13", "_2010_04_14", "_2010_04_15", "_2010_04_16", "_2010_04_17",
+				 "_2010_04_18", "_2010_04_19", "_2010_04_20", "_2010_04_21", "_2010_04_22", "_2010_04_23",
+				 "_2010_04_24", "_2010_04_25", "_2010_04_26", "_2010_04_27", "_2010_04_28", "_2010_04_29"};
 		
 		Common.is_restore = false;
 		//Common.restore_date = "_2010_04_13";
@@ -56,6 +60,7 @@ public class RealTravelTime {
 				data_emission(date_list[i], -1);
 				
 				//Common.store(date_list[i]);
+				Common.store();
 			}
 			
 			Thread.sleep(10*60*1000);
@@ -157,6 +162,7 @@ public class RealTravelTime {
 		
 		Common.logger.debug("select finished");
 		
+		boolean passenager;
 		//boolean store_flag = false;
 		//start process gps point
 		while(rs.next()){
@@ -170,14 +176,19 @@ public class RealTravelTime {
 				Thread.sleep(Common.emission_step * 1000);
 				Common.logger.debug("time: " + counter);
 			}
-			
+			if(rs.getString("ostdesc").contains("ÖØ³µ")){
+				passenager = true;
+			}
+			else{
+				passenager = false;
+			}
 			//utc of gps is in the time range, process the point
 			Sample gps = new Sample(date, rs.getLong("suid"), rs.getLong("utc"), rs.getLong("lat"), 
-		    		rs.getLong("lon"), (int)rs.getLong("head"));
+		    		rs.getLong("lon"), (int)rs.getLong("head"), passenager);
 			
 			int suid = (int) gps.suid;
 			if(Common.taxi[suid] == null){
-				Common.taxi[suid] = new TaxiInfo();
+				Common.taxi[suid] = new TaxiInfo(suid);
 				int number = suid % Common.thread_number;
 				Common.thread_pool[number].put_suid(suid);
 			}
@@ -212,7 +223,7 @@ public class RealTravelTime {
 	    Runtime.getRuntime().exec(shell_string); 
 	    //subprocess maybe blocked or dead lock happens and do not resturn, so need to set a timeout()
 	    //the problem can be solved by http://blog.csdn.net/ericahdu/article/details/5848868, but inconvenient
-	    Thread.sleep(30 * 60 * 1000);
+	    Thread.sleep(25 * 60 * 1000);
 	    //int exitValue = process.wait(30 * 60 * 1000);
 	    //return exitValue;
 	}  

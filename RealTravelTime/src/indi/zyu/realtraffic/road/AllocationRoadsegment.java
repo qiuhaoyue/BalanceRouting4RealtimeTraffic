@@ -156,6 +156,7 @@ public class AllocationRoadsegment extends RoadSegment {
 			//lock.unlock();
 			return -3;
 		}
+		
 		//check sensed speed
 		double sensed_speed = this.length/new_time;
 		if(sensed_speed > Common.max_speed){
@@ -173,11 +174,16 @@ public class AllocationRoadsegment extends RoadSegment {
 		else if(smooth_alpha > 0.9){
 			smooth_alpha = 0.9;
 		}
+		
 		//road_lock.lock();
+		//check whether time increase too fast, to avoid wrong traffic
+		/*int max_times = (int) (3 + (0.9 - smooth_alpha) * 10);
+		if(new_time / this.time > max_times){
+			return -3;
+		}*/
 		
-		this.time = new_time * (1-smooth_alpha) + this.time * smooth_alpha;
-		
-		this.avg_speed = restrict_speed(this.length / this.time);
+		this.avg_speed = restrict_speed(sensed_speed * (1-smooth_alpha) + 
+				this.avg_speed * smooth_alpha);
 		this.time = this.length / this.avg_speed;
 		
 		//road_lock.unlock();	
@@ -249,6 +255,12 @@ public class AllocationRoadsegment extends RoadSegment {
 			this.date = cur_date;
 			return true;
 		}
+		
+		//last day
+		if(cur_date.compareTo(this.date) < 0){
+			return false;
+		}
+		
 		//current sample is later than last sample
 		if(cur_seq > this.seq || cur_date.compareTo(this.date) > 0){
 			
@@ -346,14 +358,14 @@ public class AllocationRoadsegment extends RoadSegment {
 			class_speed_vertical = Common.default_class_traffic[this.class_id][tmp_seq];
 			//avoid saltation
 			//transverse comparison
-			max_speed_limit = this.avg_speed + (i- pre_seq) * class_speed_transverse;
-			min_speed_limit = this.avg_speed - (i- pre_seq) * class_speed_transverse;
+			max_speed_limit = this.avg_speed + Common.infer_alpha * (i- pre_seq) * class_speed_transverse;
+			min_speed_limit = this.avg_speed - Common.infer_alpha * (i- pre_seq) * class_speed_transverse;
 			//vertical comparison
-			if(max_speed_limit > default_speed + class_speed_vertical){
-				max_speed_limit = default_speed + class_speed_vertical;
+			if(max_speed_limit > default_speed + Common.infer_alpha * class_speed_vertical){
+				max_speed_limit = default_speed + Common.infer_alpha * class_speed_vertical;
 			}
-			if(min_speed_limit < default_speed - class_speed_vertical){
-				min_speed_limit = default_speed - class_speed_vertical;
+			if(min_speed_limit < default_speed - Common.infer_alpha * class_speed_vertical){
+				min_speed_limit = default_speed - Common.infer_alpha * class_speed_vertical;
 			}			
 			if(max_speed_limit <= min_speed_limit){
 				continue;
@@ -365,7 +377,7 @@ public class AllocationRoadsegment extends RoadSegment {
 			else if(infer_speed < min_speed_limit){
 				infer_speed = min_speed_limit;
 			}
-			
+			infer_speed = restrict_speed(infer_speed);
 			//if(tmp_seq != cur_seq){
 				//insert it
 				String tmp_date;

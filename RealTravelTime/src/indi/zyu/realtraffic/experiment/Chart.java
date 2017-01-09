@@ -74,11 +74,11 @@ public class Chart {
 		
 		Common.start_utc = 1270483200L;
 		Common.end_utc = 1270569600L;
-		//Common.init(40000);
+		Common.init(40000);
 		//Common.init_traffic_table();
 		//Common.clear_travel_table("_2010_02_07");
 		//Common.clear_travel_table("");
-		//Common.init_roadlist();//initialize roadlist
+		Common.init_roadlist();//initialize roadlist
 		//compare("_2010_03_04");
 		/*String[] date_list = {"_2010_02_01","_2010_02_02","_2010_02_03","_2010_02_04","_2010_02_05","_2010_02_07"
 				,"_2010_02_09","_2010_02_10","_2010_02_11","_2010_02_12","_2010_02_13","_2010_02_14","_2010_02_15"
@@ -90,8 +90,8 @@ public class Chart {
 		/*for(int i=0; i<date_list.length; i++){
 			Common.clear_travel_table(date_list[i]);
 		}*/
-		//compare_all(date_list);
-		Common.clear_travel_table("_2010_04_14");
+		compare_all(date_list);
+		//Common.clear_travel_table("_2010_04_14");
 		Common.logger.debug("all done.");
     }
 	

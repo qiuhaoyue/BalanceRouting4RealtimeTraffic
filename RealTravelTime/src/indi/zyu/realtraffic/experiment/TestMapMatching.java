@@ -113,7 +113,7 @@ public class TestMapMatching {
 				continue;
 			}
 			MatcherSample matcher_sample = new MatcherSample(String.valueOf(sample.suid), 
-					sample.utc.getTime()/1000, new Point(sample.lon, sample.lat));
+					sample.utc.getTime(), new Point(sample.lon, sample.lat));
 			Set<MatcherCandidate> vector = Common.matcher.execute(state.vector(), state.sample(),
 		    		matcher_sample);
 			state.update2(vector, matcher_sample);
@@ -151,7 +151,7 @@ public class TestMapMatching {
 				continue;
 			}
 			MatcherSample matcher_sample = new MatcherSample(String.valueOf(sample.suid), 
-					sample.utc.getTime()/1000, new Point(sample.lon, sample.lat));
+					sample.utc.getTime(), new Point(sample.lon, sample.lat));
 			Set<MatcherCandidate> vector = Common.matcher.execute(state.vector(), state.sample(),
 		    		matcher_sample);
 			MatcherCandidate converge = state.update_converge(vector, matcher_sample);
@@ -235,7 +235,7 @@ public class TestMapMatching {
 					online_gid[temp_id] = new ArrayList<Integer>();
 				}
 				taxi[temp_id].add(new Sample("_2010_03_01", rs.getLong("suid"), rs.getLong("utc"), rs.getLong("lat"), 
-	    		rs.getLong("lon"), (int)rs.getLong("head")));
+	    		rs.getLong("lon"), (int)rs.getLong("head"), true));
 				//count++;
 				//System.out.println(count + "\n");
 			}
