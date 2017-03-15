@@ -8,6 +8,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 
@@ -30,6 +31,8 @@ public class TestMapMatching {
 	static int min_window_size = 2;
 	static int max_window_size = 20;
 	//static int time_range = 60;
+	static double rest_counter[] = new double[max_window_size+1];
+	
 	
 	public static void main(String[] args){  
 		max_suid = get_taxi_data();
@@ -38,6 +41,8 @@ public class TestMapMatching {
 		int error_counter[] = new int[max_window_size+1];
 		int route_total_counter[] = new int[max_window_size+1];
 		int route_error_counter[] = new int[max_window_size+1];
+		double ave_delay[] = new double[max_window_size+1];
+		
 		offline_route = new ArrayList[10000];
 		online_route = new ArrayList[10000];
 		for(int i=0; i<10000; i++){
@@ -45,19 +50,25 @@ public class TestMapMatching {
 			online_route[i] = new ArrayList(30);
 		}
 		
+		int trajectory_counter = 0;
+		
 		for(int i=0; i <= max_suid; i++){
 			if(taxi[i] == null){
 				continue;
 			}
+			
 			Common.logger.debug("suid " + i +": ");
 			if(taxi[i].size() < 300){
 				Common.logger.debug("too short, skip");
 			}
+			
+			trajectory_counter++;
+			
 			//offline
 			offline_match(i, taxi[i]);
 			//caculate online map-matching with different window size and compare with offline matching
 			for(int window_size=min_window_size; window_size<=max_window_size; window_size++){
-				online_match(i, taxi[i], window_size);
+				ave_delay[window_size] += online_match(i, taxi[i], window_size);
 				//normal condition, if some points match failed, matched number of offline will decrease
 				if(offline_gid[i].size() > 0 && offline_gid[i].size() >= online_gid[i].size()
 						&& offline_gid[i].size() - online_gid[i].size() <= window_size + 1){
@@ -96,9 +107,17 @@ public class TestMapMatching {
 			error_rate = (double)route_error_counter[window_size]/(double)route_total_counter[window_size];
 			Common.logger.debug("route error rate: " + error_rate);
 			data[1][window_size - min_window_size] = error_rate;
+			
+			//average delay
+			//Common.logger.debug(ave_delay[window_size] + ";" + trajectory_counter);
+			ave_delay[window_size] /= trajectory_counter;
+			Common.logger.debug("average delay: " + ave_delay[window_size]);
+			
+			//rest point number
+			rest_counter[window_size] /= trajectory_counter;
+			Common.logger.debug("rest point number: " + rest_counter[window_size]);
 		}
 		Chart.output(data, "/home/zyu/data_map_matching");
-		
 		
 	}
 	
@@ -139,19 +158,31 @@ public class TestMapMatching {
 		}
 	}
 	
-	public static void online_match(int suid, ArrayList<Sample> trajectory, int window_size){
+	public static double online_match(int suid, ArrayList<Sample> trajectory, int window_size){
 		KState<MatcherCandidate, MatcherTransition, MatcherSample> state = new KState<MatcherCandidate, MatcherTransition, 
 				MatcherSample>(window_size, -1);
 		online_gid[suid].clear();
 		Sample pre_sample = null;//to avoid stop point
 		int match_counter = 0;
+		int start_pos = 0;
+		int end_pos = 0;
+		int id=0;
+		double total_time = 0;
+		HashMap<Integer,Long> id_time_map= new HashMap<Integer,Long>();
+		
 		for(Sample sample : trajectory){
 			//stop point, ignore it
 			if(pre_sample != null && sample.lat == pre_sample.lat && sample.lon == pre_sample.lon){
 				continue;
 			}
-			MatcherSample matcher_sample = new MatcherSample(String.valueOf(sample.suid), 
+			//start_time[start_pos++] = System.currentTimeMillis();
+			
+			MatcherSample matcher_sample = new MatcherSample(String.valueOf(id), 
 					sample.utc.getTime(), new Point(sample.lon, sample.lat));
+			
+			id_time_map.put(id, System.currentTimeMillis());
+			id++;
+			
 			Set<MatcherCandidate> vector = Common.matcher.execute(state.vector(), state.sample(),
 		    		matcher_sample);
 			MatcherCandidate converge = state.update_converge(vector, matcher_sample);
@@ -160,6 +191,8 @@ public class TestMapMatching {
 				continue;
 			}
 			else{
+				long start_time = id_time_map.get(Integer.parseInt(converge.matching_id()));
+				total_time += System.currentTimeMillis() - start_time;
 				int gid = (int)converge.point().edge().id();
 				online_gid[suid].add(gid);
 				online_route[match_counter].clear();
@@ -174,6 +207,28 @@ public class TestMapMatching {
 			}
 			
 		}
+		//calculate average delay
+		
+		//end time of unconvergency point
+		double last_time = System.currentTimeMillis();
+		/*if(end_pos == 0){
+			
+		}*/
+		/*for(int i=0; i< end_pos; i++){
+			//Common.logger.debug(start_time[i] + ";" + end_time[i]);
+			total_time += (end_time[i] - start_time[i]);
+		}*/
+		if(match_counter > 0){
+			total_time /= match_counter;
+		}
+		
+		Common.logger.debug("window size: " + window_size + "; average delay: " + total_time);
+		//rest point number in window
+		Common.logger.debug("rest point number: " + state.samples().size());
+		rest_counter[window_size] += state.samples().size();
+		
+		return total_time;
+		
 	}
 	
 	//store taxi data into memory,return max_suid
@@ -192,7 +247,7 @@ public class TestMapMatching {
 			//import the data from database;
 			stmt = con.createStatement();
 			//get max suid
-			String sql="select suid from " + Common.ValidSampleTable +" where suid<2000 group by suid";
+			String sql="select suid from " + Common.ValidSampleTable +" where suid < 2000 group by suid";
 			//String sql="select suid from " + sample_table +" group by suid order by suid";
 			System.out.println(sql);
 			rs = stmt.executeQuery(sql);

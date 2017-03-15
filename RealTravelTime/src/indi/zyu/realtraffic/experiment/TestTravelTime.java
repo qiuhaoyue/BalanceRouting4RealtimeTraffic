@@ -126,9 +126,9 @@ public class TestTravelTime {
 				data[0][pos] = error_rate;
 				data[1][pos] = real_time_list.get(i);
 				data[2][pos++] = exp_time_list.get(i);
-				sum_total += error_rate;
+				sum_total += Math.abs(error_rate);
 				if(error_rate < 2){
-					sum_valid += error_rate;
+					sum_valid += Math.abs(error_rate);
 					count_valid++;
 				}
 			}
@@ -478,12 +478,13 @@ public class TestTravelTime {
 			Common.logger.debug("error: exp_time<0");
 			return -1;
 		}
-		error_rate = Math.abs(real_time - exp_time)/ real_time;
+		//error_rate = Math.abs(real_time - exp_time)/ real_time;
+		error_rate = (exp_time - real_time)/ real_time;
 		Common.logger.debug("error rate: " + error_rate);
 		real_time_list.add(real_time);
 		exp_time_list.add(exp_time);
 		//record error info
-		if(error_rate > 0.7){
+		if(Math.abs(error_rate) > 0.7){
 			int gen_id = id + 1126180;
 			TravelTimeInfo travel_info = new TravelTimeInfo(gen_id, gid_list, seq_list, time_list, 
 					old_sample_list, new_sample_list, counter, error_rate,real_time, exp_time);
@@ -587,22 +588,33 @@ public class TestTravelTime {
 		Common.logger.debug(data.length);
 		
 		//analyse error rate
-		int[] count_rate = new int[30];
+		int[] pos_count_rate = new int[30];
+		int[] neg_count_rate = new int[30];
 		double error_rate;
 		int idx;
 		for(int i=0; i<data[0].length; i++){
 			error_rate = data[0][i];
+			idx = (int) (Math.abs(error_rate)/0.1);
 			
-			idx = (int) (error_rate/0.1);
+			if(error_rate > 0){
+				if(idx > 29){
+					pos_count_rate[29]++;
+				}
+				else{
+					pos_count_rate[(int) (error_rate/0.1)]++;
+				}
+			}
+			else{
+				if(idx > 29){
+					neg_count_rate[29]++;
+				}
+				else{
+					neg_count_rate[(int) (Math.abs(error_rate)/0.1)]++;
+				}
+			}
 			if(idx > 10){
 				real_time_list.add(data[1][i]);
 				exp_time_list.add(data[2][i]);
-			}
-			if(idx > 29){
-				count_rate[29]++;
-			}
-			else{
-				count_rate[(int) (error_rate/0.1)]++;
 			}
 			
 		}
@@ -621,15 +633,25 @@ public class TestTravelTime {
 				high_counter++;
 			}
 		}
-		Common.logger.debug("exp<real: " + low_counter);
+		
 		Common.logger.debug("exp>real: " + high_counter);
 		
-		for(int i=0; i<count_rate.length; i++){
-			if(count_rate[i] == 0){
+		for(int i=0; i<pos_count_rate.length; i++){
+			if(pos_count_rate[i] == 0){
 				continue;
 			}
-			Common.logger.debug(i*10 + "%" + "-" + (i*10+10) + "%: " + count_rate[i]);
+			Common.logger.debug(i*10 + "%" + "-" + (i*10+10) + "%: " + pos_count_rate[i]);
 		}
+		
+		Common.logger.debug("exp<real: " + low_counter);
+		
+		for(int i=0; i<neg_count_rate.length; i++){
+			if(neg_count_rate[i] == 0){
+				continue;
+			}
+			Common.logger.debug(i*10 + "%" + "-" + (i*10+10) + "%: " + neg_count_rate[i]);
+		}
+		
 		Common.logger.debug("error rate > 1: ");
 		for(int i=0; i< real_time_list.size(); i++){
 			Common.logger.debug("real: " + real_time_list.get(i) + ", exp: " + exp_time_list.get(i));

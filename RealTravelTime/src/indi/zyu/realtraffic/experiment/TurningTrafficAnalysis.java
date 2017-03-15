@@ -83,6 +83,7 @@ public class TurningTrafficAnalysis {
 			}
 						
 		}
+		Common.dropConnection(con);
 	}
 	
 	public void read_all_turning() throws SQLException{
@@ -135,5 +136,6 @@ public class TurningTrafficAnalysis {
 			}
 						
 		}
+		Common.dropConnection(con);
 	}
 }

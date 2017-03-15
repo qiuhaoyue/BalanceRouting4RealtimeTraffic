@@ -46,10 +46,10 @@ public class Common {
 	
 	public static String UserName = "secret";
 	public static String UserPwd  = "secret";
-	public static String DataBase = "taxi_data";
+	public static String DataBase = "secret";
 	
-	public static String OriginWayTable = "ways";
-	public static String ValidSampleTable  = "valid_gps_utc";
+	public static String OriginWayTable = "secret";
+	public static String ValidSampleTable  = "secret";
 	static String FilterSampleTable = ValidSampleTable;
 	
 	//for restore
@@ -99,7 +99,7 @@ public class Common {
 	
 	//to control speed of data emission
 	public static int emission_step = 1;//send points within next x seconds every time
-	public static int emission_multiple = 2;//times of speed of real time.
+	public static int emission_multiple = 1;//times of speed of real time.
 	
 	//taxi info
 	public static TaxiInfo taxi[] = null;//taxi sample

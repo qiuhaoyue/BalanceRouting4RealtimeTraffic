@@ -40,7 +40,7 @@ public class RealTravelTime {
 				 "_2010_04_24", "_2010_04_25", "_2010_04_26", "_2010_04_27", "_2010_04_28", "_2010_04_29"};
 		
 		Common.is_restore = false;
-		//Common.restore_date = "_2010_04_13";
+		//Common.restore_date = "_2010_04_28";
 		
 		
 		Common.init(40000);//initialize map, matchers and process thread
@@ -132,7 +132,6 @@ public class RealTravelTime {
 		
 		//create traffic table
 		Common.Date_Suffix = date;
-		//Common.real_traffic_updater.create_traffic_table("_2010_04_13");
 		Common.init_traffic_table();
 				
 		//clear previous travel table 
@@ -151,11 +150,7 @@ public class RealTravelTime {
     		counter = start_counter;
     	}
     	//whole day
-    	//sql = "select * from " + Common.ValidSampleTable + " where ostdesc like '%ÖØ³µ%' order by utc;";
     	sql = "select * from " + Common.ValidSampleTable + " order by utc;";
-    	//start from 12:00
-    	/*sql = "select * from " + Common.ValidSampleTable + " where utc > " 
-    			+ (Common.start_utc + 86400/2) + " order by utc;";*/
     	
 		Common.logger.debug(sql);
 		rs = stmt.executeQuery(sql);
@@ -194,17 +189,8 @@ public class RealTravelTime {
 			}
 			Common.taxi[suid].add_gps(gps);
 			
-			//store at 12:00
-			/*if(interval >= 86400/2 && store_flag == false){
-				//Thread.sleep(10*60*1000);
-				//Common.store(date);
-				store_flag = true;
-				break;
-			}*/
-			
 		}
-		
-		
+			
 		String end_time = tempDate.format(new java.util.Date());
 
     	Common.logger.debug("-----Real travel time process finished:	"+end_time+"-------!");

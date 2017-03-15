@@ -15,6 +15,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.sql.Connection;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -76,20 +77,20 @@ public class Chart {
 		Common.end_utc = 1270569600L;
 		Common.init(40000);
 		//Common.init_traffic_table();
-		//Common.clear_travel_table("_2010_02_07");
+		//Common.clear_travel_table("_2010_04_07");
+		//Common.clear_travel_table("_2010_04_08");
 		//Common.clear_travel_table("");
 		Common.init_roadlist();//initialize roadlist
 		//compare("_2010_03_04");
-		/*String[] date_list = {"_2010_02_01","_2010_02_02","_2010_02_03","_2010_02_04","_2010_02_05","_2010_02_07"
-				,"_2010_02_09","_2010_02_10","_2010_02_11","_2010_02_12","_2010_02_13","_2010_02_14","_2010_02_15"
-				,"_2010_02_16","_2010_02_17","_2010_02_18","_2010_02_19","_2010_02_20","_2010_02_21","_2010_02_22"
-				,"_2010_02_23","_2010_02_24","_2010_02_25","_2010_02_26","_2010_02_27","_2010_03_01","_2010_03_02"
-				,"_2010_03_03","_2010_03_04","_2010_03_05","_2010_03_06","_2010_03_07","_2010_03_08","_2010_03_09"
-				,"_2010_03_10","_2010_03_11"};*/
-		String[] date_list = {"_2010_04_14"};
+		String[] date_list = {"_2010_04_07", "_2010_04_08","_2010_04_09","_2010_04_10","_2010_04_11","_2010_04_12","_2010_04_13"
+				,"_2010_04_14","_2010_04_15"/*,"_2010_04_16"*/,"_2010_04_17","_2010_04_18","_2010_04_19","_2010_04_20"
+				,"_2010_04_21","_2010_04_22","_2010_04_23","_2010_04_24","_2010_04_25","_2010_04_26","_2010_04_27"
+				,"_2010_04_28","_2010_04_29"};
+		//String[] date_list = {"_2010_04_14"};
 		/*for(int i=0; i<date_list.length; i++){
 			Common.clear_travel_table(date_list[i]);
 		}*/
+		Common.logger.debug("start to compare...");
 		compare_all(date_list);
 		//Common.clear_travel_table("_2010_04_14");
 		Common.logger.debug("all done.");
@@ -97,10 +98,17 @@ public class Chart {
 	
 	public static void compare_all(String[] date_list){
 		compareTrafficBySpeedClass(date_list);
-		compareInferAndSensed(date_list);
-		compareTotalTraffic(date_list);
-		compareTurningTraffic(date_list);
-		compareTrafficNumber(date_list);
+		//compareInferAndSensed(date_list);
+		//compareTotalTraffic(date_list);
+		//compareTurningTraffic(date_list);
+		//compareTrafficNumber(date_list);
+		/*try {
+			calculate_gps_num(date_list);
+			
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}*/
 	}
 	
 	public static void compare(String date){
@@ -180,13 +188,15 @@ public class Chart {
 			int primary_id = 106;
 			int secondary_id = 108;
 			int tertiary_id = 109;
+			int residential_id = 110;
 			int seg = (int)Common.max_seg;
 			
-			double[][] traffic = new double[4][seg];
+			double[][] traffic = new double[5][seg];
 			int[] trunk_traffic_counter = new int[seg + 1];
 			int[] primary_traffic_counter = new int[seg + 1];
 			int[] secondary_traffic_counter = new int[seg + 1];
 			int[] tertiary_traffic_counter = new int[seg + 1];
+			int[] residential_traffic_counter = new int[seg + 1];
 			
 			for(int i=0; i<date_list.length; i++){
 				String date = date_list[i];
@@ -194,6 +204,7 @@ public class Chart {
 				RoadTrafficAnalysis primary_analyzer = new RoadTrafficAnalysis(date, primary_id);
 				RoadTrafficAnalysis secondary_analyzer = new RoadTrafficAnalysis(date, secondary_id);
 				RoadTrafficAnalysis tertiary_analyzer = new RoadTrafficAnalysis(date, tertiary_id);
+				RoadTrafficAnalysis residential_analyzer = new RoadTrafficAnalysis(date, residential_id);
 				
 				int total_traffic = 0;
 				for(int j=1; j<= seg; j++){
@@ -205,6 +216,8 @@ public class Chart {
 					secondary_traffic_counter[j] += secondary_analyzer.traffic_counter[j];
 					traffic[3][j-1] += tertiary_analyzer.average_speed[j] * tertiary_analyzer.traffic_counter[j];
 					tertiary_traffic_counter[j] += tertiary_analyzer.traffic_counter[j];
+					traffic[4][j-1] += residential_analyzer.average_speed[j] * residential_analyzer.traffic_counter[j];
+					residential_traffic_counter[j] += residential_analyzer.traffic_counter[j];
 				}
 			}
 			for(int i=1; i<= seg; i++){
@@ -212,8 +225,9 @@ public class Chart {
 				traffic[1][i-1] /= primary_traffic_counter[i];
 				traffic[2][i-1] /= secondary_traffic_counter[i];
 				traffic[3][i-1] /= tertiary_traffic_counter[i];
+				traffic[4][i-1] /= residential_traffic_counter[i];
 			}
-			String[] rowKeys = {"trunk","primary","secondary","tertiary"};
+			String[] rowKeys = {"trunk","primary","secondary","tertiary","residential"};
 			String[] columnKeys = new String[seg];
 			for(int i=1; i<= seg; i++){
 				columnKeys[i-1] = String.valueOf(i);
@@ -292,6 +306,102 @@ public class Chart {
 			e.printStackTrace();
 		}
 	}
+	
+	public static void calculate_gps_num(String[] date_list) throws SQLException{
+		String SamplePath = "/mnt/freenas/taxi_data/0407~0430/";
+		Common.init(40000);//initialize map, matchers and process thread
+		Common.init_roadlist();//initialize roadmap and initial state
+		Connection con = null;
+		
+		long[] gps_number = new long[300];
+		
+		try{
+			con = Common.getConnection();
+			if (con == null) {
+				Common.logger.error("Failed to make connection!");
+				return;
+			}
+			Statement stmt = con.createStatement();
+				
+			for(int i=0; i< date_list.length; i++){		
+				Common.logger.debug("start to process data from " + date_list[i]);
+				//if you need to restore, you should set start_counter to control where to start
+				//drop table if exists
+				String sql = "";
+				try{
+					sql = "drop table if exists " + Common.ValidSampleTable + ";";
+					stmt.executeUpdate(sql);
+				}
+				catch (SQLException e) {
+				    e.printStackTrace();
+				    con.rollback();
+				}
+				finally{
+					con.commit();
+				}
+				
+				//import sample table
+				try{
+					import_table(SamplePath + "valid" + date_list[i]);
+				}
+				catch(Exception e){
+					Common.logger.debug("import sample data failed");
+				}
+				
+				
+				sql = "select min(utc),max(utc) from " + Common.ValidSampleTable + ";";
+				ResultSet rs = stmt.executeQuery(sql);
+				long start_utc = 0, end_utc = 0;
+				if(rs.next()){
+					start_utc = rs.getLong(1);
+					end_utc = rs.getLong(2);
+				}
+				Common.logger.debug(date_list[i] + " start utc: " + Common.start_utc + "; end utc: " + Common.end_utc);
+				//whole day
+		    	sql = "select * from " + Common.ValidSampleTable + " order by utc;";
+		    	
+				Common.logger.debug(sql);
+				rs = stmt.executeQuery(sql);
+				
+				Common.logger.debug("select finished");
+
+				while(rs.next()){
+					long utc = rs.getLong("utc");
+					int seq_num=(int)(288-(end_utc-utc)/300);
+					//judge points at 00:00
+					if(seq_num == 0 && utc == start_utc){
+						seq_num += 1;
+					}
+					gps_number[seq_num]++;
+				}
+			}
+		}	
+		catch (Exception e) {
+		    e.printStackTrace();
+		    Common.logger.error("generate gps point error!");
+		    //con.rollback();
+		}
+		finally{
+			con.commit();
+		}
+		for(long num:gps_number){
+			Common.logger.debug(num);
+		}
+	}
+		
+	//import sample table from file
+	public static void import_table(String filePath)   
+		    throws IOException, InterruptedException {  
+		//psql  -f ./valid_2010_04_07.sql "dbname=taxi_data user=postgres password=***"
+		String[] shell_string = {"/bin/sh", "-c", "psql  -f " + filePath + ".sql" + " 'dbname=" + Common.DataBase 
+				+ " user=" + Common.UserName + " password=" + Common.UserPwd + "'"};
+		Common.logger.debug("import table start");
+		//Process process = Runtime.getRuntime().exec(shell_string);
+		Runtime.getRuntime().exec(shell_string); 
+		Thread.sleep(25 * 60 * 1000);
+		//int exitValue = process.wait(30 * 60 * 1000);
+		//return exitValue;
+	}  
 	
 	public static void compareTotalTraffic(String[] date_list){
 		try {

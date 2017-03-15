@@ -125,6 +125,7 @@ public class RoadTrafficAnalysis {
 			}
 			
 		}
+		Common.dropConnection(con);
 	}
 	
 	
@@ -214,6 +215,7 @@ public class RoadTrafficAnalysis {
 			}
 			
 		}
+		Common.dropConnection(con);
 	}
 	
 }
