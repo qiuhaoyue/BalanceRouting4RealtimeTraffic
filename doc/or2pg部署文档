@@ -100,3 +100,19 @@ psql -d routing -c "CREATE EXTENSION pgrouting;"
 #导入postgres
 \i /opt/oracle/taxi_data/output.sql
 
+#导入osm地图数据
+1.安装postgis下载
+下载postgis-2.0.2.tar.gz
+tar -zxvf postgis-2.0.2.tar.gz 
+cd postgis-2.2.2
+./configure –with-raster –with-topology
+make
+make install
+2.安装osm2pgrouting
+sudo apt-get install osm2pgrouting
+3.创建数据库routing
+sudo su - postgres
+createdb routing
+4.下载北京市osm并导入
+地址：https://github.com/xyongcn/BalanceRouting4RealtimeTraffic/tree/master/map
+osm2pgrouting -f ~/map/Beijing.osm -c /usr/share/osm2pgrouting/mapconfig.xml -d routing -U postgres -h localhost -W postgres --clean
